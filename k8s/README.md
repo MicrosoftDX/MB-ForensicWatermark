@@ -18,7 +18,7 @@ ARG PREPROCESSOR_VERSION=4.7-123654
 ARG EMBEDDER_VERSION=3.5-117278
 ```
 
-Also, you should `cp ./variables.sh.template ./variables.sh` and then tweak `variables.sh` appropriately. 
+Also, you should `cp ./variables.sh.template ./variables.sh` and then tweak [`variables.sh`](variables.sh) appropriately. 
 
 ## Local docker image build
 
@@ -30,16 +30,24 @@ The docker run needs two environment variables, `LICENSES` and `JOB`. These envi
 
 ### LICENSES
 
-- One of the required licenses currently comes from a license server, which IP address is configured in the `PREPROCESSOR_IP` variable in the file `variables.sh`.  
-- The other license is stored locally in the filesystem in the directory `k8s/licenses/NGStreamingSE.lic`. 
+You need two NexGuard licenses, one for the preprocessor, one for the embedder. 
 
-The licenses must be installed as files in the running docker container, and that happens by passing in the `LICENSES` variable. 
+- The proprocessor license currently comes from a license server, which IP address is [configured](https://github.com/MicrosoftDX/MB-ForensicWatermark/blob/master/k8s/variables.sh.template#L3) in the `PREPROCESSOR_IP` variable in the file `variables.sh`.  
+- The embedder license is stored locally in the filesystem in the directory `k8s/licenses/NGStreamingSE.lic`. That path is configured in the `EMBEDDER_LICENSE_FILE` variable in the file `variables.sh`.  
+
+All license file contents are aggregated in a [JSON structure](https://github.com/MicrosoftDX/MB-ForensicWatermark/blob/fc1979cdd1020dd7ee06040834e37af70de455cc/k8s/create-license.sh#L11-L15). 
+
+The license JSON structure is then base64-encoded, and passed as `LICENSES` environment variable to the docker container. Inside the docker container, the .NET Core executable [processes the `LICENSES` environment variable and installs the license files into the container's file system](https://github.com/MicrosoftDX/MB-ForensicWatermark/blob/fc1979cdd1020dd7ee06040834e37af70de455cc/k8s/embedder.src/Program.cs#L57-L66). 
+
+In addition to the two licenses, we also ship a custom encoding profile (`k8s/licenses/NGPTV_Preprocessor.xml`) into the container. 
 
 ### JOB description
 
-We can fetch a valid job description from a web API endpoint. You need to tweak 
+The second thing the job needs is the actual job description. Usually, the job is triggered from outside the k8s cluster. The `JOB` environment variable must contain the base64-encoded JSON Job description. 
 
+### Local job execution on the laptop
 
+All the invocation can be locally simulated using the [`run-in-local-docker.sh`](run-in-local-docker.sh) script, which [creates the license](https://github.com/MicrosoftDX/MB-ForensicWatermark/blob/fc1979cdd1020dd7ee06040834e37af70de455cc/k8s/run-in-local-docker.sh#L5-L20), [fetches a demo job](https://github.com/MicrosoftDX/MB-ForensicWatermark/blob/fc1979cdd1020dd7ee06040834e37af70de455cc/k8s/run-in-local-docker.sh#L22-L24), [provides some diagnostics](https://github.com/MicrosoftDX/MB-ForensicWatermark/blob/fc1979cdd1020dd7ee06040834e37af70de455cc/k8s/run-in-local-docker.sh#L26-L42) and the [launches docker](https://github.com/MicrosoftDX/MB-ForensicWatermark/blob/fc1979cdd1020dd7ee06040834e37af70de455cc/k8s/run-in-local-docker.sh#L46-L51)
 
 ```bash
 docker run -it --rm \
@@ -49,4 +57,3 @@ docker run -it --rm \
     "${acr_name}.azurecr.io/${IMAGE_NAME}:${IMAGE_VERSION}" \
     embedder.dll 
 ```
-
