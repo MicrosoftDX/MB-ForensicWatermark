@@ -85,4 +85,4 @@ RUN tar zxvf "${HOME}/${PREPROCESSOR_GPG_TGZ}" -C "${HOME}" \
 
 WORKDIR ${HOME}/${APPNAME}
 
-CMD [ "/usr/local/bin", "${HOME}/${APPNAME}/${APPNAME}.dll" ]
+CMD [ "/usr/local/bin/dotnet", "${HOME}/${APPNAME}/${APPNAME}.dll" ]
