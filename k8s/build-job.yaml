@@ -1,0 +1,43 @@
+apiVersion: batch/v1 
+kind: Job 
+metadata:
+  name: build-job-${EXTERNAL_UUID}
+spec: 
+    template: 
+        metadata:
+            name: build-job
+            annotations:
+                pod.beta.kubernetes.io/init-containers: '[ 
+                    {
+                        "name": "download-git-repo",
+                        "image": "chgeuer/chgeuer-docker-utils",
+                        "imagePullPolicy": "IfNotPresent",
+                        "command": [ "git", "clone", "${EXTERNAL_GIT_ORIGIN}", "/git" ],
+                        "volumeMounts": [ { "mountPath": "/git", "name": "git" } ]
+                    }
+                ]'
+        spec:
+            restartPolicy: Never
+            volumes: 
+              - name: git
+                emptyDir: {}
+              - name: docker-graph-storage
+                emptyDir: {}
+            containers: 
+              - name: build-job
+                image: docker:17.06.0-ce-dind
+                # image: docker:17.06-dind
+                securityContext: 
+                    privileged: true 
+                volumeMounts:
+                  - name: git
+                    mountPath: /git
+                  - name: docker-graph-storage
+                    mountPath: /var/lib/docker
+                env: 
+                  - name: DOCKER_SECRET_CFG
+                    valueFrom:
+                      secretKeyRef:
+                        name: ${acr_name}.azurecr.io
+                        key:  .dockercfg
+                command: [ '/bin/sh', '/git/k8s/create-docker-image.sh', '${IMAGE_NAME}', '${IMAGE_VERSION}' ]

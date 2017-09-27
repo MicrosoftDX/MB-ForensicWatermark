@@ -1,0 +1,635 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<schemes signature="17279096c376899fec2f0d033db85fbfa26e7720">
+    <!-- NOTE: Do not modify this file. 
+     Any modifications will invalidate the signature and result in an invalid file! -->
+    <scheme>
+        <name>Profile_1920x1080_2500-20400kbps</name>
+        <max_pattern_strength>7.0</max_pattern_strength>
+        <pattern_strength>1.5</pattern_strength>
+        <texture_threshold>90.0</texture_threshold>
+        <motion_threshold>2.0</motion_threshold>
+        <param_set>
+            <input>
+                <width min="1920" max="1920" />
+                <height min="1080" max="1080" />
+                <frame_rates>23.98,24,25,29.97</frame_rates>
+                <fps_deviation>0.1</fps_deviation>
+            </input>
+            <output>
+                <video>
+                    <bitrate min="2500" max="20400" />
+                    <gop_size min="1" max="6" />
+                </video>
+            </output>
+        </param_set>
+    </scheme>
+    <scheme>
+        <name>Profile_1920x960_2500-20400kbps</name>
+        <max_pattern_strength>7.0</max_pattern_strength>
+        <pattern_strength>1.5</pattern_strength>
+        <texture_threshold>90.0</texture_threshold>
+        <motion_threshold>2.0</motion_threshold>
+        <param_set>
+            <input>
+                <width min="1920" max="1920" />
+                <height min="960" max="960" />
+                <frame_rates>23.98,24,25,29.97</frame_rates>
+                <fps_deviation>0.1</fps_deviation>
+            </input>
+            <output>
+                <video>
+                    <bitrate min="2500" max="20400" />
+                    <gop_size min="1" max="6" />
+                </video>
+            </output>
+        </param_set>
+    </scheme>
+    <scheme>
+        <name>Profile_1280x720_3000-8000kbps_HFR</name>
+        <max_pattern_strength>7.0</max_pattern_strength>
+        <pattern_strength>1.5</pattern_strength>
+        <texture_threshold>90.0</texture_threshold>
+        <motion_threshold>2.0</motion_threshold>
+        <param_set>
+            <input>
+                <width min="1280" max="1280" />
+                <height min="720" max="720" />
+                <frame_rates>59.94,60</frame_rates>
+                <fps_deviation>0.1</fps_deviation>
+            </input>
+            <output>
+                <video>
+                    <bitrate min="3000" max="8000" />
+                    <gop_size min="1" max="2" />
+                </video>
+            </output>
+        </param_set>
+    </scheme>
+    <scheme>
+        <name>Profile_1280x720_1000-6600kbps</name>
+        <max_pattern_strength>7.0</max_pattern_strength>
+        <pattern_strength>1.5</pattern_strength>
+        <texture_threshold>90.0</texture_threshold>
+        <motion_threshold>2.0</motion_threshold>
+        <param_set>
+            <input>
+                <width min="1280" max="1280" />
+                <height min="720" max="720" />
+                <frame_rates>23.98,24,25,29.97</frame_rates>
+                <fps_deviation>0.1</fps_deviation>
+            </input>
+            <output>
+                <video>
+                    <bitrate min="1000" max="6600" />
+                    <gop_size min="1" max="6" />
+                </video>
+            </output>
+        </param_set>
+    </scheme>
+    <scheme>
+        <name>Profile_1280x640_3000-8000kbps_HFR</name>
+        <max_pattern_strength>7.0</max_pattern_strength>
+        <pattern_strength>1.5</pattern_strength>
+        <texture_threshold>90.0</texture_threshold>
+        <motion_threshold>2.0</motion_threshold>
+        <param_set>
+            <input>
+                <width min="1280" max="1280" />
+                <height min="640" max="640" />
+                <frame_rates>59.94,60</frame_rates>
+                <fps_deviation>0.1</fps_deviation>
+            </input>
+            <output>
+                <video>
+                    <bitrate min="3000" max="8000" />
+                    <gop_size min="1" max="6" />
+                </video>
+            </output>
+        </param_set>
+    </scheme>
+    <scheme>
+        <name>Profile_1280x640_1000-6000kbps</name>
+        <max_pattern_strength>7.0</max_pattern_strength>
+        <pattern_strength>1.5</pattern_strength>
+        <texture_threshold>90.0</texture_threshold>
+        <motion_threshold>2.0</motion_threshold>
+        <param_set>
+            <input>
+                <width min="1280" max="1280" />
+                <height min="640" max="640" />
+                <frame_rates>23.98,24,25,29.97</frame_rates>
+                <fps_deviation>0.1</fps_deviation>
+            </input>
+            <output>
+                <video>
+                    <bitrate min="1000" max="6000" />
+                    <gop_size min="1" max="6" />
+                </video>
+            </output>
+        </param_set>
+    </scheme>
+    <scheme>
+        <name>Profile_1280x528_1000-6000kbps</name>
+        <max_pattern_strength>7.0</max_pattern_strength>
+        <pattern_strength>1.5</pattern_strength>
+        <texture_threshold>90.0</texture_threshold>
+        <motion_threshold>2.0</motion_threshold>
+        <param_set>
+            <input>
+                <width min="1280" max="1280" />
+                <height min="528" max="528" />
+                <frame_rates>23.98,24,25,29.97</frame_rates>
+                <fps_deviation>0.1</fps_deviation>
+            </input>
+            <output>
+                <video>
+                    <bitrate min="1000" max="6000" />
+                    <gop_size min="1" max="6" />
+                </video>
+            </output>
+        </param_set>
+    </scheme>
+    <scheme>
+        <name>Profile_960x544_900-4076kbps</name>
+        <max_pattern_strength>7.0</max_pattern_strength>
+        <pattern_strength>1.5</pattern_strength>
+        <texture_threshold>90.0</texture_threshold>
+        <motion_threshold>2.0</motion_threshold>
+        <param_set>
+            <input>
+                <width min="960" max="960" />
+                <height min="544" max="544" />
+                <frame_rates>23.98,24,25,29.97</frame_rates>
+                <fps_deviation>0.1</fps_deviation>
+            </input>
+            <output>
+                <video>
+                    <bitrate min="900" max="4076" />
+                    <gop_size min="1" max="6" />
+                </video>
+            </output>
+        </param_set>
+    </scheme>
+    <scheme>
+        <name>Profile_960x540_900-4076kbps</name>
+        <max_pattern_strength>7.0</max_pattern_strength>
+        <pattern_strength>1.5</pattern_strength>
+        <texture_threshold>90.0</texture_threshold>
+        <motion_threshold>2.0</motion_threshold>
+        <param_set>
+            <input>
+                <width min="960" max="960" />
+                <height min="540" max="540" />
+                <frame_rates>23.98,24,25,29.97</frame_rates>
+                <fps_deviation>0.1</fps_deviation>
+            </input>
+            <output>
+                <video>
+                    <bitrate min="900" max="4076" />
+                    <gop_size min="1" max="6" />
+                </video>
+            </output>
+        </param_set>
+    </scheme>
+    <scheme>
+        <name>Profile_960x480_900-4076kbps</name>
+        <max_pattern_strength>7.0</max_pattern_strength>
+        <pattern_strength>1.5</pattern_strength>
+        <texture_threshold>90.0</texture_threshold>
+        <motion_threshold>2.0</motion_threshold>
+        <param_set>
+            <input>
+                <width min="960" max="960" />
+                <height min="480" max="480" />
+                <frame_rates>23.98,24,25,29.97</frame_rates>
+                <fps_deviation>0.1</fps_deviation>
+            </input>
+            <output>
+                <video>
+                    <bitrate min="900" max="4076" />
+                    <gop_size min="1" max="6" />
+                </video>
+            </output>
+        </param_set>
+    </scheme>
+    <scheme>
+        <name>Profile_896x504_1800-3600kbps</name>
+        <max_pattern_strength>7.0</max_pattern_strength>
+        <pattern_strength>1.5</pattern_strength>
+        <texture_threshold>90.0</texture_threshold>
+        <motion_threshold>2.0</motion_threshold>
+        <param_set>
+            <input>
+                <width min="896" max="896" />
+                <height min="504" max="504" />
+                <frame_rates>23.98,24,25,29.97</frame_rates>
+                <fps_deviation>0.1</fps_deviation>
+            </input>
+            <output>
+                <video>
+                    <bitrate min="1800" max="3600" />
+                    <gop_size min="1" max="6" />
+                </video>
+            </output>
+        </param_set>
+    </scheme>
+    <scheme>
+        <name>Profile_852x480_1000-2500kbps</name>
+        <max_pattern_strength>7.0</max_pattern_strength>
+        <pattern_strength>1.5</pattern_strength>
+        <texture_threshold>90.0</texture_threshold>
+        <motion_threshold>2.0</motion_threshold>
+        <param_set>
+            <input>
+                <width min="852" max="852" />
+                <height min="480" max="480" />
+                <frame_rates>23.98,24,25,29.97</frame_rates>
+                <fps_deviation>0.1</fps_deviation>
+            </input>
+            <output>
+                <video>
+                    <bitrate min="1000" max="2500" />
+                    <gop_size min="1" max="6" />
+                </video>
+            </output>
+        </param_set>
+    </scheme>
+    <scheme>
+        <name>Profile_848x640_1000-5200kbps</name>
+        <max_pattern_strength>7.0</max_pattern_strength>
+        <pattern_strength>1.5</pattern_strength>
+        <texture_threshold>90.0</texture_threshold>
+        <motion_threshold>2.0</motion_threshold>
+        <param_set>
+            <input>
+                <width min="848" max="848" />
+                <height min="640" max="640" />
+                <frame_rates>23.98,24,25,29.97</frame_rates>
+                <fps_deviation>0.1</fps_deviation>
+            </input>
+            <output>
+                <video>
+                    <bitrate min="1000" max="5200" />
+                    <gop_size min="1" max="6" />
+                </video>
+            </output>
+        </param_set>
+    </scheme>
+    <scheme>
+        <name>Profile_848x480_1000-5000kbps</name>
+        <max_pattern_strength>7.0</max_pattern_strength>
+        <pattern_strength>1.5</pattern_strength>
+        <texture_threshold>90.0</texture_threshold>
+        <motion_threshold>2.0</motion_threshold>
+        <param_set>
+            <input>
+                <width min="848" max="848" />
+                <height min="480" max="480" />
+                <frame_rates>23.98,24,25,29.97</frame_rates>
+                <fps_deviation>0.1</fps_deviation>
+            </input>
+            <output>
+                <video>
+                    <bitrate min="1000" max="5000" />
+                    <gop_size min="1" max="6" />
+                </video>
+            </output>
+        </param_set>
+    </scheme>
+    <scheme>
+        <name>Profile_768x432_1000-2800kbps</name>
+        <max_pattern_strength>7.0</max_pattern_strength>
+        <pattern_strength>1.5</pattern_strength>
+        <texture_threshold>90.0</texture_threshold>
+        <motion_threshold>2.0</motion_threshold>
+        <param_set>
+            <input>
+                <width min="768" max="768" />
+                <height min="432" max="432" />
+                <frame_rates>23.98,24,25,29.97</frame_rates>
+                <fps_deviation>0.1</fps_deviation>
+            </input>
+            <output>
+                <video>
+                    <bitrate min="1000" max="2800" />
+                    <gop_size min="1" max="6" />
+                </video>
+            </output>
+        </param_set>
+    </scheme>
+    <scheme>
+        <name>Profile_736x416_1384-2768kbps</name>
+        <max_pattern_strength>7.0</max_pattern_strength>
+        <pattern_strength>1.5</pattern_strength>
+        <texture_threshold>90.0</texture_threshold>
+        <motion_threshold>2.0</motion_threshold>
+        <param_set>
+            <input>
+                <width min="736" max="736" />
+                <height min="416" max="416" />
+                <frame_rates>23.98,24,25,29.97</frame_rates>
+                <fps_deviation>0.1</fps_deviation>
+            </input>
+            <output>
+                <video>
+                    <bitrate min="1384" max="2768" />
+                    <gop_size min="1" max="6" />
+                </video>
+            </output>
+        </param_set>
+    </scheme>
+    <scheme>
+        <name>Profile_720x404_800-2400kbps</name>
+        <max_pattern_strength>7.0</max_pattern_strength>
+        <pattern_strength>1.5</pattern_strength>
+        <texture_threshold>90.0</texture_threshold>
+        <motion_threshold>2.0</motion_threshold>
+        <param_set>
+            <input>
+                <width min="720" max="720" />
+                <height min="404" max="404" />
+                <frame_rates>23.98,24,25,29.97</frame_rates>
+                <fps_deviation>0.1</fps_deviation>
+            </input>
+            <output>
+                <video>
+                    <bitrate min="800" max="2400" />
+                    <gop_size min="1" max="6" />
+                </video>
+            </output>
+        </param_set>
+    </scheme>
+    <scheme>
+        <name>Profile_640x480_512-5000kbps</name>
+        <max_pattern_strength>7.0</max_pattern_strength>
+        <pattern_strength>1.5</pattern_strength>
+        <texture_threshold>90.0</texture_threshold>
+        <motion_threshold>2.0</motion_threshold>
+        <param_set>
+            <input>
+                <width min="640" max="640" />
+                <height min="480" max="480" />
+                <frame_rates>23.98,24,25,29.97</frame_rates>
+                <fps_deviation>0.1</fps_deviation>
+            </input>
+            <output>
+                <video>
+                    <bitrate min="512" max="5000" />
+                    <gop_size min="1" max="6" />
+                </video>
+            </output>
+        </param_set>
+    </scheme>
+    <scheme>
+        <name>Profile_640x368_1000-5000kbps</name>
+        <max_pattern_strength>7.0</max_pattern_strength>
+        <pattern_strength>1.5</pattern_strength>
+        <texture_threshold>90.0</texture_threshold>
+        <motion_threshold>2.0</motion_threshold>
+        <param_set>
+            <input>
+                <width min="640" max="640" />
+                <height min="368" max="368" />
+                <frame_rates>23.98,24,25,29.97</frame_rates>
+                <fps_deviation>0.1</fps_deviation>
+            </input>
+            <output>
+                <video>
+                    <bitrate min="1000" max="5000" />
+                    <gop_size min="1" max="6" />
+                </video>
+            </output>
+        </param_set>
+    </scheme>
+    <scheme>
+        <name>Profile_640x360_512-2400kbps</name>
+        <max_pattern_strength>7.0</max_pattern_strength>
+        <pattern_strength>1.5</pattern_strength>
+        <texture_threshold>90.0</texture_threshold>
+        <motion_threshold>2.0</motion_threshold>
+        <param_set>
+            <input>
+                <width min="640" max="640" />
+                <height min="360" max="360" />
+                <frame_rates>23.98,24,25,29.97</frame_rates>
+                <fps_deviation>0.1</fps_deviation>
+            </input>
+            <output>
+                <video>
+                    <bitrate min="512" max="2400" />
+                    <gop_size min="1" max="6" />
+                </video>
+            </output>
+        </param_set>
+    </scheme>
+    <scheme>
+        <name>Profile_576x320_940-1880kbps</name>
+        <max_pattern_strength>7.0</max_pattern_strength>
+        <pattern_strength>1.5</pattern_strength>
+        <texture_threshold>90.0</texture_threshold>
+        <motion_threshold>2.0</motion_threshold>
+        <param_set>
+            <input>
+                <width min="576" max="576" />
+                <height min="320" max="320" />
+                <frame_rates>23.98,24,25,29.97</frame_rates>
+                <fps_deviation>0.1</fps_deviation>
+            </input>
+            <output>
+                <video>
+                    <bitrate min="940" max="1880" />
+                    <gop_size min="1" max="6" />
+                </video>
+            </output>
+        </param_set>
+    </scheme>
+    <scheme>
+        <name>Profile_512x288_640-1280kbps</name>
+        <max_pattern_strength>7.0</max_pattern_strength>
+        <pattern_strength>1.5</pattern_strength>
+        <texture_threshold>90.0</texture_threshold>
+        <motion_threshold>2.0</motion_threshold>
+        <param_set>
+            <input>
+                <width min="512" max="512" />
+                <height min="288" max="288" />
+                <frame_rates>23.98,24,25,29.97</frame_rates>
+                <fps_deviation>0.1</fps_deviation>
+            </input>
+            <output>
+                <video>
+                    <bitrate min="640" max="1280" />
+                    <gop_size min="1" max="6" />
+                </video>
+            </output>
+        </param_set>
+    </scheme>
+    <scheme>
+        <name>Profile_480x272_300-1000kbps</name>
+        <max_pattern_strength>7.0</max_pattern_strength>
+        <pattern_strength>1.5</pattern_strength>
+        <texture_threshold>90.0</texture_threshold>
+        <motion_threshold>2.0</motion_threshold>
+        <param_set>
+            <input>
+                <width min="480" max="480" />
+                <height min="272" max="272" />
+                <frame_rates>23.98,24,25,29.97</frame_rates>
+                <fps_deviation>0.1</fps_deviation>
+            </input>
+            <output>
+                <video>
+                    <bitrate min="300" max="1000" />
+                    <gop_size min="1" max="6" />
+                </video>
+            </output>
+        </param_set>
+    </scheme>
+    <scheme>
+        <name>Profile_432x324_400-1000kbps</name>
+        <max_pattern_strength>7.0</max_pattern_strength>
+        <pattern_strength>1.5</pattern_strength>
+        <texture_threshold>90.0</texture_threshold>
+        <motion_threshold>2.0</motion_threshold>
+        <param_set>
+            <input>
+                <width min="432" max="432" />
+                <height min="324" max="324" />
+                <frame_rates>23.98,24,25,29.97</frame_rates>
+                <fps_deviation>0.1</fps_deviation>
+            </input>
+            <output>
+                <video>
+                    <bitrate min="400" max="1000" />
+                    <gop_size min="1" max="6" />
+                </video>
+            </output>
+        </param_set>
+    </scheme>
+    <scheme>
+        <name>Profile_432x240_638-5000kbps</name>
+        <max_pattern_strength>7.0</max_pattern_strength>
+        <pattern_strength>1.5</pattern_strength>
+        <texture_threshold>90.0</texture_threshold>
+        <motion_threshold>2.0</motion_threshold>
+        <param_set>
+            <input>
+                <width min="432" max="432" />
+                <height min="240" max="240" />
+                <frame_rates>23.98,24,25,29.97</frame_rates>
+                <fps_deviation>0.1</fps_deviation>
+            </input>
+            <output>
+                <video>
+                    <bitrate min="638" max="5000" />
+                    <gop_size min="1" max="6" />
+                </video>
+            </output>
+        </param_set>
+    </scheme>
+    <scheme>
+        <name>Profile_384x216_360-720kbps</name>
+        <max_pattern_strength>7.0</max_pattern_strength>
+        <pattern_strength>1.5</pattern_strength>
+        <texture_threshold>90.0</texture_threshold>
+        <motion_threshold>2.0</motion_threshold>
+        <param_set>
+            <input>
+                <width min="384" max="384" />
+                <height min="216" max="216" />
+                <frame_rates>23.98,24,25,29.97</frame_rates>
+                <fps_deviation>0.1</fps_deviation>
+            </input>
+            <output>
+                <video>
+                    <bitrate min="360" max="720" />
+                    <gop_size min="1" max="6" />
+                </video>
+            </output>
+        </param_set>
+    </scheme>
+    <scheme>
+        <name>Profile_336x192_434-868kbps</name>
+        <max_pattern_strength>7.0</max_pattern_strength>
+        <pattern_strength>1.5</pattern_strength>
+        <texture_threshold>90.0</texture_threshold>
+        <motion_threshold>2.0</motion_threshold>
+        <param_set>
+            <input>
+                <width min="336" max="336" />
+                <height min="192" max="192" />
+                <frame_rates>23.98,24,25,29.97</frame_rates>
+                <fps_deviation>0.1</fps_deviation>
+            </input>
+            <output>
+                <video>
+                    <bitrate min="434" max="868" />
+                    <gop_size min="1" max="6" />
+                </video>
+            </output>
+        </param_set>
+    </scheme>
+    <scheme>
+        <name>Profile_320x24_1000-5000kbps</name>
+        <max_pattern_strength>7.0</max_pattern_strength>
+        <pattern_strength>1.5</pattern_strength>
+        <texture_threshold>90.0</texture_threshold>
+        <motion_threshold>2.0</motion_threshold>
+        <param_set>
+            <input>
+                <width min="320" max="320" />
+                <height min="24" max="24" />
+                <frame_rates>23.98,24,25,29.97</frame_rates>
+                <fps_deviation>0.1</fps_deviation>
+            </input>
+            <output>
+                <video>
+                    <bitrate min="1000" max="5000" />
+                    <gop_size min="1" max="6" />
+                </video>
+            </output>
+        </param_set>
+    </scheme>
+    <scheme>
+        <name>Profile_256x144_294-588kbps</name>
+        <max_pattern_strength>7.0</max_pattern_strength>
+        <pattern_strength>1.5</pattern_strength>
+        <texture_threshold>90.0</texture_threshold>
+        <motion_threshold>2.0</motion_threshold>
+        <param_set>
+            <input>
+                <width min="256" max="256" />
+                <height min="144" max="144" />
+                <frame_rates>23.98,24,25,29.97</frame_rates>
+                <fps_deviation>0.1</fps_deviation>
+            </input>
+            <output>
+                <video>
+                    <bitrate min="294" max="588" />
+                    <gop_size min="1" max="6" />
+                </video>
+            </output>
+        </param_set>
+    </scheme>
+    <scheme>
+        <name>Profile_192x112_200-400kbps</name>
+        <max_pattern_strength>7.0</max_pattern_strength>
+        <pattern_strength>1.5</pattern_strength>
+        <texture_threshold>90.0</texture_threshold>
+        <motion_threshold>2.0</motion_threshold>
+        <param_set>
+            <input>
+                <width min="192" max="192" />
+                <height min="112" max="112" />
+                <frame_rates>23.98,24,25,29.97</frame_rates>
+                <fps_deviation>0.1</fps_deviation>
+            </input>
+            <output>
+                <video>
+                    <bitrate min="200" max="400" />
+                    <gop_size min="1" max="6" />
+                </video>
+            </output>
+        </param_set>
+    </scheme>
+</schemes>
