@@ -154,8 +154,8 @@ namespace embedder
             {
                 var blockBlob = new CloudBlockBlob(blobAbsoluteUri);
 
-                // await LargeFileUploaderUtils.UploadAsync(file: file, blockBlob: blockBlob, uploadParallelism: 10);
-                await blockBlob.UploadFromFileAsync(file.FullName);
+                await LargeFileUploaderUtils.UploadAsync(file: file, blockBlob: blockBlob, uploadParallelism: 10);
+                // await blockBlob.UploadFromFileAsync(file.FullName);
 
                 return new ExecutionResult { Success = true, Output = $"{prefix}: Uploaded {file.FullName} to {blobAbsoluteUri.AbsoluteUri}" };
             }
