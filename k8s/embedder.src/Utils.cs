@@ -144,7 +144,7 @@ namespace embedder
             }
             catch (Exception ex)
             {
-                return new ExecutionResult { Success = false, Output = $"{prefix}: ERR {ex.Message} {blobAbsoluteUri.AbsoluteUri}" };
+                return new ExecutionResult { Success = false, Output = $"{prefix}: ERR during download: \"{ex.Message}\" {blobAbsoluteUri.AbsoluteUri}" };
             }
         }
 
@@ -154,14 +154,14 @@ namespace embedder
             {
                 var blockBlob = new CloudBlockBlob(blobAbsoluteUri);
 
-                // return LargeFileUploaderUtils.UploadAsync(file: file, blockBlob: blockBlob);
+                // await LargeFileUploaderUtils.UploadAsync(file: file, blockBlob: blockBlob, uploadParallelism: 10);
                 await blockBlob.UploadFromFileAsync(file.FullName);
 
                 return new ExecutionResult { Success = true, Output = $"{prefix}: Uploaded {file.FullName} to {blobAbsoluteUri.AbsoluteUri}" };
             }
             catch (Exception ex)
             {
-                return new ExecutionResult { Success = false, Output = $"{prefix}: ERR {ex.Message} {blobAbsoluteUri.AbsoluteUri}" };
+                return new ExecutionResult { Success = false, Output = $"{prefix}: ERR during upload: \"{ex.Message}\" {blobAbsoluteUri.AbsoluteUri}" };
             }
         }
     }
