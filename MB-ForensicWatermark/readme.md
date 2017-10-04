@@ -32,6 +32,7 @@ After success deployed Azure Function, you need to add configuration Application
 10. **K8SJobAggregation**: Number of rendition to put on the first K8S job. for example on a 5 renditions video, if you use 4, 4 lower rendition will go in one K8S job and the highest resolution will go on a separate job.
 11. **gopsize**: GOP size
 12. **KeepWatermakedBlobs**: keep or not on intermediary blob storage the output MP4 after watermark process, default is false. Only use true for debugging activities. 
+13. **K8SJobAggregationOnlyEmb**: (Optional) Default 1, For Embedded process only, it is the rendition JOB aggregation level.
 
 After you setup all Function configuration you have to create a **Host Key**. That key will use by Logic Apps process to call all functions, so you will use that Key on Logic App configuration. 
 
@@ -39,25 +40,7 @@ After you setup all Function configuration you have to create a **Host Key**. Th
 ### Logic Apps process
 To deploy a Logic APP with visual studio check https://docs.microsoft.com/en-us/azure/logic-apps/logic-apps-deploy-from-vs#deploy-your-logic-app-from-visual-studio
 
-As I mentioned before Logic APPS uses Azure functions to implement same of their actions on the logic process, so you need to have deployed Azure Functions before to configure Logic APPS becausee you need Azure function URL and KEY.
-
-#### Logic Apps PreprocessorB
-This process receive messages from queue preprocessorout of Azure watermark Storage. Every time that K8S finish a MMRK file, it send a message to this queue and this process read the message and update Azure watermark Storage tables with MMRK information. 
-
-The process configuration is on PreprocessorB.parameters.json file, and it include
-1. **azurequeues_1_storageaccount**: Azure watermark Storage name
-2. **azurequeues_1_sharedkey**: azurequeues_1_sharedkey key
-3. **MessageSecKeep**: time in seconds to keep message hidden after peek from the queue.
-4. **UpdateMMRKStatus**: Azure Function URL with key of Azure Function **UpdateMMRKStatus** 
-
-#### Logic Apps embebbedNotifications
-This process receive messages from queue **embeddernotification** of Azure watermark Storage. Every time that K8S finish a new watermarked MP4 copy file, it send a message to this queue and this process read the message and update Azure watermark Storage tables with MP4 information. 
-
-The process configuration is on *embebbedNotifications.parameters.json* file, and it include
-1. **azurequeues_1_storageaccount**: Azure watermark Storage name
-2. **azurequeues_1_sharedkey**: azurequeues_1_sharedkey key
-3. **MessageSecKeep**: time in seconds to keep message hidden after peek from the queue.
-4. **UpdateWaterMarkedRender**: Azure Function URL with key of Azure Function **UpdateWaterMarkedRender** 
+As I mentioned before Logic APPS uses Azure functions to implement same of their actions on the logic process, so you need to have deployed Azure Functions before to configure Logic APPS because you need Azure function URL and KEY.
 
 
 #### Logic Apps UnifiedProcess
