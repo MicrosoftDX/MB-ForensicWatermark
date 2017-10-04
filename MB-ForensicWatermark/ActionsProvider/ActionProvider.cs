@@ -14,40 +14,42 @@ using System.Net.Http.Headers;
 using System.Text;
 using ActionsProvider.UnifiedResponse;
 using Microsoft.Azure.WebJobs.Host;
+using System.Threading.Tasks;
+using Microsoft.WindowsAzure.Storage.Queue;
+using System.Diagnostics;
+using ActionsProvider.K8S;
 
 namespace ActionsProvider
 {
     class ReferenceNames
     {
-        public static  string WaterMarkedRender { get { return "WaterMarkedRender"; } }
-        public static  string ProcessStatus { get { return "processStatus"; } }
-        public static  string WaterMarkedAssetInfo { get { return "WaterMarkedAssetInfo"; } }
+        public static string WaterMarkedRender { get { return "WaterMarkedRender"; } }
+        public static string ProcessStatus { get { return "processStatus"; } }
+        public static string WaterMarkedAssetInfo { get { return "WaterMarkedAssetInfo"; } }
     }
     class ActionProvider : IActionsProvider
     {
+        CloudStorageAccount storageAccount;
         CloudTableClient tableClient;
         CloudTable _ProcessStatusTable;
         CloudTable _MMRKSttausTable;
-       
+
         CloudTable _AssetStatus;
         CloudTable _WaterMarkedAssetInfo;
 
-     
+
         public ActionProvider(string strConn)
         {
-            CloudStorageAccount storageAccount = CloudStorageAccount.Parse(strConn);
-             tableClient = storageAccount.CreateCloudTableClient();
+            storageAccount = CloudStorageAccount.Parse(strConn);
+            tableClient = storageAccount.CreateCloudTableClient();
             _ProcessStatusTable = tableClient.GetTableReference(ReferenceNames.ProcessStatus);
             _MMRKSttausTable = tableClient.GetTableReference("mmrkStatus");
             _AssetStatus = tableClient.GetTableReference("AssetStatus");
-            _WaterMarkedAssetInfo= tableClient.GetTableReference(ReferenceNames.WaterMarkedAssetInfo);
+            _WaterMarkedAssetInfo = tableClient.GetTableReference(ReferenceNames.WaterMarkedAssetInfo);
             _ProcessStatusTable.CreateIfNotExists();
             _MMRKSttausTable.CreateIfNotExists();
             _AssetStatus.CreateIfNotExists();
             _WaterMarkedAssetInfo.CreateIfNotExists();
-           
-
-
         }
 
         public UnifiedResponse.WaterMarkedRender UpdateWaterMarkedRender(UnifiedResponse.WaterMarkedRender renderData)
@@ -69,7 +71,7 @@ namespace ActionsProvider
                 new TableQuery<UnifiedResponse.TWaterMarkedRender>().Where(TableQuery.GenerateFilterCondition(
                     "PartitionKey", QueryComparisons.Equal, $"{ParentAssetID}-{EmbebedCodeValue}"));
 
-            var wmrTList =  wmrTable.ExecuteQuery(query);
+            var wmrTList = wmrTable.ExecuteQuery(query);
 
             foreach (var item in wmrTList)
             {
@@ -79,13 +81,13 @@ namespace ActionsProvider
 
             return myList;
         }
-        public UnifiedResponse.WaterMarkedRender GetWaterMarkedRender(string ParentAssetID, string EmbebedCodeValue , string RenderName)
+        public UnifiedResponse.WaterMarkedRender GetWaterMarkedRender(string ParentAssetID, string EmbebedCodeValue, string RenderName)
         {
             UnifiedResponse.WaterMarkedRender x = null;
             UnifiedResponse.WaterMarkedAssetInfo wai = new UnifiedResponse.WaterMarkedAssetInfo()
             {
-                AssetID=ParentAssetID,
-                
+                AssetID = ParentAssetID,
+
             };
             var myTable = tableClient.GetTableReference(ReferenceNames.WaterMarkedRender);
             myTable.CreateIfNotExists();
@@ -98,9 +100,35 @@ namespace ActionsProvider
 
             return x;
         }
-        
+        public async Task<int> EvalPEmbeddedNotifications()
+        {
+            int nNotification = 0;
+            CloudQueueClient queueClient = storageAccount.CreateCloudQueueClient();
+            CloudQueue queue = queueClient.GetQueueReference("embeddernotification");
 
-#region Asset Info
+            foreach (CloudQueueMessage message in await queue.GetMessagesAsync(20, TimeSpan.FromMinutes(60), null, null))
+            {
+                try
+                {
+                    NotificationEmbedder rawdata = Newtonsoft.Json.JsonConvert.DeserializeObject<NotificationEmbedder>(message.AsString);
+                    WaterMarkedRender data = GetWaterMarkedRender(rawdata.AssetID, rawdata.EmbebedCode, rawdata.FileName);
+                    string url = data.MP4URL;
+                    data = new WaterMarkedRender(rawdata, url);
+                    var outputData = UpdateWaterMarkedRender(data);
+                }
+                catch (Exception X)
+                {
+                    Trace.TraceError($"EvalPEmbeddedNotifications Error: {X.Message}");
+                    CloudQueue deadletter = queueClient.GetQueueReference("deadletter");
+                    await deadletter.AddMessageAsync(message);
+                }
+                await queue.DeleteMessageAsync(message);
+                nNotification += 1;
+            }
+            return nNotification;
+        }
+
+        #region Asset Info
         public UnifiedResponse.AssetStatus GetAssetStatus(string AssetId)
         {
             UnifiedResponse.AssetStatus r = null;
@@ -150,9 +178,9 @@ namespace ActionsProvider
             TableOperation InsertOrReplace = TableOperation.InsertOrReplace(new UnifiedResponse.TAssetStatus(theAsset));
             _AssetStatus.Execute(InsertOrReplace);
         }
-#endregion
+        #endregion
 
-#region Process Information
+        #region Process Information
 
         public void UpdateUnifiedProcessStatus(UnifiedResponse.UnifiedProcessStatus curretnData)
         {
@@ -186,12 +214,12 @@ namespace ActionsProvider
             {
                 AssetStatus = GetAssetStatus(AssetId),
                 JobStatus = GetJobStatus(AssetId, JobID),
-                EmbebedCodesList= new List<UnifiedResponse.WaterMarkedAssetInfo>()
-                
+                EmbebedCodesList = new List<UnifiedResponse.WaterMarkedAssetInfo>()
+
             };
             foreach (var ecode in Manifest.JobStatus.EmbebedCodeList)
             {
-                Manifest.EmbebedCodesList.Add(GetWaterMarkedAssetInfo(AssetId,ecode));
+                Manifest.EmbebedCodesList.Add(GetWaterMarkedAssetInfo(AssetId, ecode));
             }
             return Manifest;
         }
@@ -284,7 +312,7 @@ namespace ActionsProvider
                     processState.JobStatus.FinishTime = DateTime.Now;
                     processState.JobStatus.Duration = DateTime.Now.Subtract(processState.JobStatus.StartTime);
                     break;
-            
+
             }
             foreach (var watermaekAssetInfo in processState.EmbebedCodesList)
             {
@@ -296,9 +324,9 @@ namespace ActionsProvider
 
             return processState;
         }
-#endregion
+        #endregion
 
-#region MMRK files
+        #region MMRK files
         public MMRKStatus GetMMRKStatus(string AsssetId, string JobRender)
         {
             MMRKStatus myData = null;
@@ -319,7 +347,7 @@ namespace ActionsProvider
             foreach (var item in mmrkList)
             {
                 ret.Add(item.GetMMRKStatus());
-               
+
             }
             return ret;
         }
@@ -391,8 +419,39 @@ namespace ActionsProvider
             _MMRKSttausTable.Execute(InsertOrReplace);
             return mmrkStatus;
         }
+        public async Task<int> EvalPreprocessorNotifications()
+        {
+            int nNotification = 0;
+            CloudQueueClient queueClient = storageAccount.CreateCloudQueueClient();
+            CloudQueue queue = queueClient.GetQueueReference("preprocessorout");
+
+            foreach (CloudQueueMessage message in await queue.GetMessagesAsync(20, TimeSpan.FromMinutes(60), null, null))
+            {
+                try
+                {
+                    var jNotification = Newtonsoft.Json.Linq.JObject.Parse(message.AsString);
+                    // Retrive 
+                    string jobRender = $"[{(string)jNotification["JobID"]}]{(string)jNotification["FileName"]}";
+                    var MMRK = GetMMRKStatus((string)jNotification["AssetID"], jobRender);
+                    //Update MMRK Status
+                    MMRK.Details = (string)jNotification["JobOutput"];
+                    MMRK.State = (ExecutionStatus)Enum.Parse(typeof(ExecutionStatus), (string)jNotification["Status"]);
+                    UpdateMMRKStatus(MMRK);
+                }
+                catch (Exception X)
+                {
+                    Trace.TraceError($"EvalPreprocessorNotifications Error: {X.Message}");
+                    CloudQueue deadletter = queueClient.GetQueueReference("deadletter");
+                    await deadletter.AddMessageAsync(message);
+                }
+                await queue.DeleteMessageAsync(message);
+                nNotification += 1;
+            }
+            return nNotification;
+        }
+
         #endregion
-#region K8S JOBS
+        #region K8S JOBS
         private string GetJobYmal(string JobID, string JOBBASE64, string imagename)
         {
             string path;
@@ -402,88 +461,32 @@ namespace ActionsProvider
             }
             else
             {
-                path =@".\Files\jobBase.txt";
+                path = @".\Files\jobBase.txt";
             }
             string ymal = System.IO.File.ReadAllText(path);
-            
-            ymal=ymal.Replace("[JOBNAME]", "allinone-job-" + JobID );
-            
-            ymal= ymal.Replace("[IMAGENAME]", imagename);
+
+            ymal = ymal.Replace("[JOBNAME]", "allinone-job-" + JobID);
+
+            ymal = ymal.Replace("[IMAGENAME]", imagename);
 
             return ymal.Replace("[JOBBASE64]", JOBBASE64);
         }
-        public Newtonsoft.Json.Linq.JObject GetJobK8SDetail(string jobName)
+        public async Task<K8SResult> SubmiteJobK8S(ManifestInfo manifest, int subId)
         {
-            Newtonsoft.Json.Linq.JObject X = null;
-           ServicePointManager.ServerCertificateValidationCallback = delegate
-            {
-
-                return true;
-            };
-            ServicePointManager.Expect100Continue = true;
-            ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls
-                        | SecurityProtocolType.Tls11
-                        | SecurityProtocolType.Tls12
-                        | SecurityProtocolType.Ssl3;
-
-
-            string fullAddress = $"{System.Configuration.ConfigurationManager.AppSettings["K8SURL"]}/apis/batch/v1/namespaces/default/jobs/{jobName}";
-            using (HttpClient client = new HttpClient())
-            using (HttpResponseMessage response =  client.GetAsync(fullAddress).Result)
-            using (HttpContent content = response.Content)
-            {
-
-                string result =  content.ReadAsStringAsync().Result;
-                if (string.IsNullOrEmpty(result))
-                {
-                    X = Newtonsoft.Json.Linq.JObject.Parse(result);
-                }
-                
-            }
-            return X;
-        }
-        public HttpResponseMessage SubmiteJobK8S(ManifestInfo manifest, int subId)
-        {
-            ServicePointManager.ServerCertificateValidationCallback = delegate
-           {
-
-               return true;
-           };
-
-            ServicePointManager.Expect100Continue = true;
-           
-            ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls
-                        | SecurityProtocolType.Tls11
-                        | SecurityProtocolType.Tls12
-                        | SecurityProtocolType.Ssl3;
-
-
-            HttpClient client = new HttpClient
-            {
-  
-                BaseAddress = new Uri(System.Configuration.ConfigurationManager.AppSettings["K8SURL"])
-            };
-
-            client.DefaultRequestHeaders.Accept.Clear();
-            client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-
-            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", System.Configuration.ConfigurationManager.AppSettings["K8SURLTOKEN"]);
-
+            //Create Yamal Job definition
             string manifesttxt = Newtonsoft.Json.JsonConvert.SerializeObject(manifest);
-
-            string jobbase64 = System.Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(manifesttxt),Base64FormattingOptions.None);
-
-            string imageName = System.Configuration.ConfigurationManager.AppSettings["imageName"];//"jpggk8sregistry.azurecr.io/nexguard/allinoneb:0.0.5";
-
+            string jobbase64 = System.Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(manifesttxt), Base64FormattingOptions.None);
+            string imageName = System.Configuration.ConfigurationManager.AppSettings["imageName"];
             string jobtxt = GetJobYmal(manifest.JobID + "-" + subId.ToString(), jobbase64, imageName);
+            HttpContent ymal = new StringContent(jobtxt, Encoding.UTF8, "application/yaml");
 
-            HttpContent ymal = new StringContent(jobtxt , Encoding.UTF8,"application/yaml");
-            
-            var r=  client.PostAsync("apis/batch/v1/namespaces/default/jobs", ymal).Result;
-            return r;
-         
+            // Submite JOB
+            IK8SClient k8sClient = K8SClientFactory.Create();
+            var rs = await k8sClient.SubmiteK8SJob(ymal);
+            return rs;
+
         }
-        private ManifestInfo GetManifestInfo(int skip,int take,ManifestInfo manifest)
+        private ManifestInfo GetManifestInfo(int skip, int take, ManifestInfo manifest)
         {
             ManifestInfo aggregateJobManifest = new ManifestInfo()
             {
@@ -514,14 +517,28 @@ namespace ActionsProvider
             return aggregateJobManifest;
 
         }
-        public List<ManifestInfo> GetK8SManifestInfo(int aggregationLevel, ManifestInfo manifest)
+        /// <summary>
+        /// Generate watermark Job Json list
+        /// </summary>
+        /// <param name="aggregationLevel"># of render to agregate on Job with pre step (mmrk) to execute</param>
+        /// <param name="manifest">Process manifest</param>
+        /// <returns></returns>
+        public List<ManifestInfo> GetK8SManifestInfo(int aggregationLevel, int aggregationLevelOnlyEmb, ManifestInfo manifest)
         {
             int renders = manifest.VideoInformation.Count();
-            if (aggregationLevel>renders)
+
+
+            //If MMRK are ready, no agregation
+            if (manifest.VideoInformation.FirstOrDefault().MP4URL == "")
+            {
+                //This Asset already have MMRK ready, son We will use other aggregation level
+                aggregationLevel = aggregationLevelOnlyEmb;
+            }
+
+            if (aggregationLevel > renders)
             {
                 throw new Exception($"Total renders are {renders} can't aggregate {aggregationLevel} level");
             }
-
             List<ManifestInfo> myManifestJob = new List<ManifestInfo>();
 
             myManifestJob.Add(GetManifestInfo(0, aggregationLevel, manifest));
@@ -534,7 +551,7 @@ namespace ActionsProvider
             return myManifestJob;
         }
 
-       
+
         #endregion
     }
 

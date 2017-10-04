@@ -4,6 +4,7 @@
 using ActionsProvider;
 using ActionsProvider.AMS;
 using ActionsProvider.Entities;
+using ActionsProvider.K8S;
 using ActionsProvider.UnifiedResponse;
 using Microsoft.Azure.WebJobs;
 using Microsoft.Azure.WebJobs.Extensions.Http;
@@ -20,8 +21,8 @@ namespace WaterMarkingActions
 {
     public static class WaterMArkActions
     {
-        
-        
+
+
         [FunctionName("StartNewJob")]
         public static async Task<HttpResponseMessage> StartNewJob([HttpTrigger(AuthorizationLevel.Function, "post", Route = null)]HttpRequestMessage req, TraceWriter log)
         {
@@ -65,7 +66,7 @@ namespace WaterMarkingActions
 
             //Save Status
             IActionsProvider myActions = ActionProviderFactory.GetActionProvider();
-            if (MMRK.FileURL== "{NO UPDATE}")
+            if (MMRK.FileURL == "{NO UPDATE}")
             {
                 string jobRender = $"[{MMRK.JobID}]{MMRK.FileName}";
                 var currentMMRKStatus = myActions.GetMMRKStatus(MMRK.AssetID, jobRender);
@@ -83,30 +84,16 @@ namespace WaterMarkingActions
             UnifiedProcessStatus manifest = BodyData.ToObject<UnifiedProcessStatus>();
 
             IActionsProvider myActions = ActionProviderFactory.GetActionProvider();
-            //Eval Asset Status
+            //1. Update EvalPreprocessorNotifications
+            int nNotification = await myActions.EvalPreprocessorNotifications();
+            log.Info($"Preprocessor Notifications processed {nNotification}");
+            //2. Eval Asset Status
             manifest.AssetStatus = myActions.EvalAssetStatus(manifest.AssetStatus.AssetId);
-
-            //Update Manifest/ all process
+            //3. Update Manifest/ all process
             myActions.UpdateUnifiedProcessStatus(manifest);
-
-            log.Info($"Updated Actions AssetId {manifest.AssetStatus.AssetId} sttaus {manifest.AssetStatus}");
-
+            //4. Log and replay
+            log.Info($"Updated Actions AssetId {manifest.AssetStatus.AssetId} staus {manifest.AssetStatus.ToString()}");
             return req.CreateResponse(HttpStatusCode.OK, manifest, JsonMediaTypeFormatter.DefaultMediaType);
-        }
-
-        [FunctionName("UpdateWaterMarkedRender")]
-        public static async Task<HttpResponseMessage> UpdateWaterMarkedRender([HttpTrigger(AuthorizationLevel.Function, "post", Route = null)]HttpRequestMessage req, TraceWriter log)
-        {
-            IActionsProvider myActions = ActionProviderFactory.GetActionProvider();
-            dynamic BodyData = await req.Content.ReadAsAsync<object>();
-            NotificationEmbedder rawdata = BodyData.ToObject<NotificationEmbedder>();
-
-            WaterMarkedRender data = myActions.GetWaterMarkedRender(rawdata.AssetID, rawdata.EmbebedCode, rawdata.FileName);
-            string url = data.MP4URL;
-            data = new WaterMarkedRender(rawdata, url);
-                                 
-            var outputData = myActions.UpdateWaterMarkedRender(data);
-            return req.CreateResponse(HttpStatusCode.OK, outputData, JsonMediaTypeFormatter.DefaultMediaType);
         }
 
         [FunctionName("UpdateWaterMarkCode")]
@@ -114,7 +101,7 @@ namespace WaterMarkingActions
         {
             IActionsProvider myActions = ActionProviderFactory.GetActionProvider();
             dynamic BodyData = await req.Content.ReadAsAsync<object>();
-            EnbebedCode myCode= BodyData.EnbebedCode.ToObject<EnbebedCode>();
+            EnbebedCode myCode = BodyData.EnbebedCode.ToObject<EnbebedCode>();
             string ParentAssetID = BodyData.ParentAssetID;
 
             foreach (var info in myCode.MP4WatermarkedURL)
@@ -127,12 +114,12 @@ namespace WaterMarkingActions
                     RenderName = info.FileName,
                     ParentAssetID = ParentAssetID,
                     State = ExecutionStatus.Running
-                    
+
                 };
                 myActions.UpdateWaterMarkedRender(data);
                 var outputData = myActions.UpdateWaterMarkedRender(data);
             }
-            return req.CreateResponse(HttpStatusCode.OK, new { Status=ExecutionStatus.Finished.ToString()}, JsonMediaTypeFormatter.DefaultMediaType);
+            return req.CreateResponse(HttpStatusCode.OK, new { Status = ExecutionStatus.Finished.ToString() }, JsonMediaTypeFormatter.DefaultMediaType);
         }
         [FunctionName("EvalEnbebedCodes")]
         public static async Task<HttpResponseMessage> EvalEnbebedCodes([HttpTrigger(AuthorizationLevel.Function, "post", Route = null)]HttpRequestMessage req, TraceWriter log)
@@ -141,17 +128,20 @@ namespace WaterMarkingActions
             dynamic BodyData = await req.Content.ReadAsAsync<object>();
             UnifiedProcessStatus manifest = BodyData.ToObject<UnifiedProcessStatus>();
             string ParentAssetID = manifest.AssetStatus.AssetId;
-
+            //1. Process Embbeded Notifications
+            int nNotification = await myActions.EvalPEmbeddedNotifications();
+            log.Info($"Embedded Notifications processed {nNotification}");
+            //2. Eval Each Watermark Render status
             List<WaterMarkedAssetInfo> UpdatedInfo = new List<WaterMarkedAssetInfo>();
             foreach (var item in manifest.EmbebedCodesList)
             {
 
-                UpdatedInfo.Add(  myActions.EvalWaterMarkedAssetInfo(ParentAssetID, item.EmbebedCodeValue));
-                
+                UpdatedInfo.Add(myActions.EvalWaterMarkedAssetInfo(ParentAssetID, item.EmbebedCodeValue));
+
             }
             //Replace New WaterMarkAssetInfo
             manifest.EmbebedCodesList = UpdatedInfo;
-            
+            //
             myActions.UpdateUnifiedProcessStatus(manifest);
 
             return req.CreateResponse(HttpStatusCode.OK, manifest, JsonMediaTypeFormatter.DefaultMediaType);
@@ -209,12 +199,12 @@ namespace WaterMarkingActions
         [FunctionName("EvalJobProgress")]
         public static async Task<HttpResponseMessage> EvalJobProgress([HttpTrigger(AuthorizationLevel.Function, "post", Route = null)]HttpRequestMessage req, TraceWriter log)
         {
-        
+
             dynamic BodyData = await req.Content.ReadAsAsync<object>();
             UnifiedProcessStatus myProcessStatus = BodyData.ToObject<UnifiedProcessStatus>();
             IActionsProvider myActions = ActionProviderFactory.GetActionProvider();
             //Check AssetStatus
-          
+
             switch (myProcessStatus.AssetStatus.State)
             {
                 case ExecutionStatus.Error:
@@ -228,9 +218,9 @@ namespace WaterMarkingActions
                     //Same status for JOB
                     //No Action
                     myProcessStatus.JobStatus.State = ExecutionStatus.Running;
-                    
+
                     var mmrklist = myActions.GetMMRKStatusList(myProcessStatus.AssetStatus.AssetId);
-                    
+
                     int mmrkTotal = mmrklist.Count();
                     int mmrkFinished = mmrklist.Where(m => m.State == ExecutionStatus.Finished).Count();
 
@@ -245,7 +235,7 @@ namespace WaterMarkingActions
                     int nRunning = myProcessStatus.EmbebedCodesList.Where(emc => emc.State == ExecutionStatus.Running).Count();
                     log.Info($"Current EMC Running {nRunning}");
                     if (nRunning == 0)
-                   {
+                    {
                         myProcessStatus.JobStatus.State = ExecutionStatus.Finished;
                         myProcessStatus.JobStatus.FinishTime = DateTime.Now;
                         myProcessStatus.JobStatus.Duration = DateTime.Now.Subtract(myProcessStatus.JobStatus.StartTime);
@@ -255,14 +245,14 @@ namespace WaterMarkingActions
                     {
                         int total = myProcessStatus.EmbebedCodesList.Count();
                         myProcessStatus.JobStatus.State = ExecutionStatus.Running;
-                        myProcessStatus.JobStatus.Details = $"Watermaerked copies {(total-nRunning)} of {total}";
-                        
+                        myProcessStatus.JobStatus.Details = $"Watermaerked copies {(total - nRunning)} of {total}";
+
                     }
                     myActions.UpdateUnifiedProcessStatus(myProcessStatus);
                     log.Info($"Updated Manifest JOB Status {myProcessStatus.JobStatus.State.ToString()}");
                     break;
             }
-            
+
             return req.CreateResponse(HttpStatusCode.OK, myProcessStatus, JsonMediaTypeFormatter.DefaultMediaType);
         }
         [FunctionName("GetUnifiedProcessStatus")]
@@ -275,8 +265,8 @@ namespace WaterMarkingActions
 
             var myProcessStatus = myActions.GetUnifiedProcessStatus(AssetId, JobID);
             return req.CreateResponse(HttpStatusCode.OK, myProcessStatus, JsonMediaTypeFormatter.DefaultMediaType);
-        
-            
+
+
         }
         [FunctionName("SubmiteWaterMarkJob")]
         public static async Task<HttpResponseMessage> SubmiteWaterMarkJob([HttpTrigger(AuthorizationLevel.Function, "post", Route = null)]HttpRequestMessage req, TraceWriter log, ExecutionContext context)
@@ -284,22 +274,23 @@ namespace WaterMarkingActions
             IActionsProvider myActions = ActionProviderFactory.GetActionProvider();
             dynamic BodyData = await req.Content.ReadAsAsync<object>();
             ManifestInfo manifest = BodyData.ToObject<ManifestInfo>();
-            int K8SJobAggregation =  int.Parse( System.Configuration.ConfigurationManager.AppSettings["K8SJobAggregation"]);
-
+            int K8SJobAggregation = int.Parse(System.Configuration.ConfigurationManager.AppSettings["K8SJobAggregation"]);
+            int K8SJobAggregationOnlyEmb = int.Parse(System.Configuration.ConfigurationManager.AppSettings["K8SJobAggregationOnlyEmb"] ?? "1");
             try
             {
-                List<ManifestInfo> jobList = myActions.GetK8SManifestInfo(K8SJobAggregation, manifest);
+                //Get JOBList to Send to K8S cluster
+                List<ManifestInfo> jobList = myActions.GetK8SManifestInfo(K8SJobAggregation, K8SJobAggregationOnlyEmb, manifest);
                 //Sumbite to K8S cluster
                 int jobSubId = 1;
                 foreach (var job in jobList)
                 {
-                    //log.Info(Newtonsoft.Json.JsonConvert.SerializeObject(job, Newtonsoft.Json.Formatting.Indented));
-                    var ret = myActions.SubmiteJobK8S(job, jobSubId);
-                    log.Info($"{job.VideoInformation.FirstOrDefault().FileName} CODE {ret.StatusCode.ToString()}");
+                    var ret = await myActions.SubmiteJobK8S(job, jobSubId);
+                    log.Info($"{job.VideoInformation.FirstOrDefault().FileName} CODE {ret.Code.ToString()}");
                     jobSubId += 1;
                     if (!ret.IsSuccessStatusCode)
                     {
-                        throw new Exception($"K8S Summition Error {ret.StatusCode.ToString()} {ret.ReasonPhrase}");
+                        log.Error($"K8S Summition Error {ret.Code.ToString()} {ret.Content}");
+                        throw new Exception($"K8S Summition Error {ret.Code.ToString()} {ret.Content}");
                     }
                 }
                 return req.CreateResponse(HttpStatusCode.OK, jobList, JsonMediaTypeFormatter.DefaultMediaType);
@@ -319,12 +310,12 @@ namespace WaterMarkingActions
 
             UnifiedProcessStatus Manifest = BodyData.Manifest.ToObject<UnifiedProcessStatus>();
 
-            ExecutionStatus AssetStatus= BodyData.AssetStatus.ToObject<ExecutionStatus>();
+            ExecutionStatus AssetStatus = BodyData.AssetStatus.ToObject<ExecutionStatus>();
 
             ExecutionStatus JobState = BodyData.JobState.ToObject<ExecutionStatus>();
             string JobStateDetails = BodyData.JobStateDetails;
 
-            ExecutionStatus WaterMarkCopiesStatus= BodyData.WaterMarkCopiesStatus.ToObject<ExecutionStatus>();
+            ExecutionStatus WaterMarkCopiesStatus = BodyData.WaterMarkCopiesStatus.ToObject<ExecutionStatus>();
             string WaterMarkCopiesStatusDetails = BodyData.WaterMarkCopiesStatusDetails;
             switch (Manifest.AssetStatus.State)
             {
@@ -352,32 +343,36 @@ namespace WaterMarkingActions
         {
             dynamic BodyData = await req.Content.ReadAsAsync<object>();
             IAMSProvider myAMShelp = AMSProviderFactory.CreateAMSProvider();
-            
+
             string AssetId = BodyData.AssetId;
             string KeepWatermakedBlobs = System.Configuration.ConfigurationManager.AppSettings["KeepWatermakedBlobs"] ?? "false";
-          
-            if (KeepWatermakedBlobs!="false")
+
+            if (KeepWatermakedBlobs != "false")
             {
                 myAMShelp.DeleteWatermakedBlobRenders(AssetId, log);
             }
-            
-            
-            return req.CreateResponse(HttpStatusCode.OK, new { result="ok"}, JsonMediaTypeFormatter.DefaultMediaType);
+
+
+            return req.CreateResponse(HttpStatusCode.OK, new { result = "ok" }, JsonMediaTypeFormatter.DefaultMediaType);
         }
-        [FunctionName("SaveStatus")]
-        public static async Task<HttpResponseMessage> SaveStatus([HttpTrigger(AuthorizationLevel.Function, "get", "post", Route = null)]HttpRequestMessage req, TraceWriter log)
+
+        [FunctionName("DeleteSucceededPods")]
+        public static async Task<HttpResponseMessage> DeleteSucceededPods([HttpTrigger(AuthorizationLevel.Function, "post", Route = null)]HttpRequestMessage req, TraceWriter log, ExecutionContext context)
         {
+            dynamic BodyData = await req.Content.ReadAsAsync<object>();
+            string JobId = BodyData.JobId;
 
-            ////Read body call data
-            //dynamic BodyData = await req.Content.ReadAsAsync<object>();
-            ////Create JobStatus from body data
-            //JobStatus myStatus = GetJobStatus(BodyData);
-            ////Save Status
-            //IActionsProvider myActions = ActionProviderFactory.GetActionProvider(Storageconn);
-            //myActions.UpdateJobStatus(myStatus);
-            var nothing = new { status = "ok" };
-            return req.CreateResponse(HttpStatusCode.OK, nothing, JsonMediaTypeFormatter.DefaultMediaType);
+            IK8SClient k = K8SClientFactory.Create();
+            string prefixName = $"allinone-job-{JobId}";
+            try
+            {
+                var r = await k.DeletePods(prefixName, "Succeeded");
+                return req.CreateResponse(r.Code, r, JsonMediaTypeFormatter.DefaultMediaType);
+            }
+            catch (Exception X)
+            {
+                return req.CreateResponse(HttpStatusCode.InternalServerError, X, JsonMediaTypeFormatter.DefaultMediaType);
+            }
         }
-
     }
 }

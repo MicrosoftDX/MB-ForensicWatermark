@@ -128,6 +128,10 @@
     <Compile Include="Entities\UnifiedResponse.cs" />
     <Compile Include="Entities\WMAssetOutputMessage.cs" />
     <Compile Include="IActionsProvider.cs" />
+    <Compile Include="K8S\IK8SClient.cs" />
+    <Compile Include="K8S\K8SClient.cs" />
+    <Compile Include="K8S\K8SClientFactory.cs" />
+    <Compile Include="K8S\K8SResult.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
