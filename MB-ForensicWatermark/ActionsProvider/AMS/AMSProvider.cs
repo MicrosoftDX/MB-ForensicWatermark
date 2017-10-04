@@ -37,11 +37,11 @@ namespace ActionsProvider.AMS
             {
                 SharedAccessStartTime = DateTimeOffset.UtcNow.AddMinutes(-5),
                 SharedAccessExpiryTime = DateTimeOffset.UtcNow.AddHours(48),
-                Permissions =  
-                    SharedAccessBlobPermissions.Read | 
-                    SharedAccessBlobPermissions.Write | 
-                    SharedAccessBlobPermissions.Add | 
-                    SharedAccessBlobPermissions.Create 
+                Permissions =
+                    SharedAccessBlobPermissions.Read |
+                    SharedAccessBlobPermissions.Write |
+                    SharedAccessBlobPermissions.Add |
+                    SharedAccessBlobPermissions.Create
             };
 
             string sasBlobToken = blob.GetSharedAccessSignature(sasConstraints);
@@ -80,7 +80,7 @@ namespace ActionsProvider.AMS
         {
             VideoInformation videoinfo = new VideoInformation()
             {
-                FileName= FileName
+                FileName = FileName
             };
             var EncodeFileName = System.Web.HttpUtility.UrlPathEncode(videoinfo.FileName);
 
@@ -100,9 +100,9 @@ namespace ActionsProvider.AMS
             //Update GOP, Bitrate and Video filter
             return ParseGopBitrateFilter(videoinfo);
         }
-        private ManifestInfo GetManifest5Jobs(ManifestInfo manifestInfo,string AssetID, IEnumerable<IAssetFile> mp4AssetFiles,string AssetLocatorPath)
+        private ManifestInfo GetManifest5Jobs(ManifestInfo manifestInfo, string AssetID, IEnumerable<IAssetFile> mp4AssetFiles, string AssetLocatorPath)
         {
-            foreach (var file in mp4AssetFiles.OrderBy(f=>f.ContentFileSize))
+            foreach (var file in mp4AssetFiles.OrderBy(f => f.ContentFileSize))
             {
                 VideoInformation video = CreateVideoInformationK28JobNode(file.Name, AssetID, AssetLocatorPath);
                 manifestInfo.VideoInformation.Add(video);
@@ -119,17 +119,17 @@ namespace ActionsProvider.AMS
             }
             return manifestInfo;
         }
-        private  async Task<string> CreateSharedAccessPolicyAsync(string queueName, string policyName)
+        private async Task<string> CreateSharedAccessPolicyAsync(string queueName, string policyName)
         {
             CloudQueue queue = _WaterMArkStorageAccount.CreateCloudQueueClient().GetQueueReference(queueName);
             await queue.CreateIfNotExistsAsync();
 
             SharedAccessQueuePolicy sharedPolicy = new SharedAccessQueuePolicy()
             {
-                SharedAccessStartTime= DateTime.UtcNow.AddMinutes(-5),
+                SharedAccessStartTime = DateTime.UtcNow.AddMinutes(-5),
                 SharedAccessExpiryTime = DateTime.UtcNow.AddHours(24),
-                Permissions = 
-                    SharedAccessQueuePermissions.Read | 
+                Permissions =
+                    SharedAccessQueuePermissions.Read |
                     SharedAccessQueuePermissions.Add |
                     SharedAccessQueuePermissions.Update |
                     SharedAccessQueuePermissions.ProcessMessages
@@ -156,7 +156,9 @@ namespace ActionsProvider.AMS
             };
             foreach (var code in codes)
             {
-                myData.EnbebedCodes.Add(new EnbebedCode() { EmbebedCode = code,
+                myData.EnbebedCodes.Add(new EnbebedCode()
+                {
+                    EmbebedCode = code,
                     MP4WatermarkedURL = new List<MP4WatermarkedURL>()
                 });
             }
@@ -164,26 +166,26 @@ namespace ActionsProvider.AMS
             IAsset currentAsset = null;
             try
             {
-                 currentAsset = _mediaContext.Assets.Where(a => a.Id == AssetID).FirstOrDefault();
+                currentAsset = _mediaContext.Assets.Where(a => a.Id == AssetID).FirstOrDefault();
             }
             catch (Exception X)
             {
 
                 throw new Exception($"AssetID {AssetID} not found. Error: {X.Message}");
             }
-            
+
             var AssetLocator = currentAsset.Locators.Where(l => l.Type == LocatorType.OnDemandOrigin).FirstOrDefault();
-            if (AssetLocator==null)
+            if (AssetLocator == null)
             {
                 //Asset Error
                 throw new Exception("Asset Has not On demand locator origen");
             }
-            IEnumerable<IAssetFile> mp4AssetFiles = currentAsset.AssetFiles.ToList().Where(af => af.Name.EndsWith(".mp4", StringComparison.OrdinalIgnoreCase)).OrderBy(f=>f.ContentFileSize);
+            IEnumerable<IAssetFile> mp4AssetFiles = currentAsset.AssetFiles.ToList().Where(af => af.Name.EndsWith(".mp4", StringComparison.OrdinalIgnoreCase)).OrderBy(f => f.ContentFileSize);
             int lala = 0;
             switch (lala)
             {
                 default:
-                    myData=GetManifest5Jobs(myData, AssetID, mp4AssetFiles, AssetLocator.Path);
+                    myData = GetManifest5Jobs(myData, AssetID, mp4AssetFiles, AssetLocator.Path);
                     break;
             }
 
@@ -292,15 +294,15 @@ namespace ActionsProvider.AMS
             {
                 // Get a reference to the Source Asset
                 IAsset SourceMediaAsset = GetMediaAssetFromAssetId(SourceAssetId);
-                string NewAssetName = $"{SourceMediaAsset.Name}-{DateTime.Now.Ticks.ToString()}";
+                string NewAssetName = $"{SourceMediaAsset.Name}-{ProcessId}-{DateTime.Now.Ticks.ToString()}";
                 CancellationToken myToken = new CancellationToken();
                 IAsset newWatermarkedAsset = await _mediaContext.Assets.CreateAsync(NewAssetName, AssetCreationOptions.None, myToken);
                 newWatermarkedAsset.AlternateId = $"{SourceAssetId}-{WMEmbedCode}";
                 await newWatermarkedAsset.UpdateAsync();
 
-               
+
                 result.Status = result.Status = "Finished"; ;
-               
+
                 result.EmbedCode = WMEmbedCode;
                 result.WMAssetId = newWatermarkedAsset.Id;
             }
@@ -338,10 +340,10 @@ namespace ActionsProvider.AMS
             {
                 path = @".\Files\ManifestBase.xml";
             }
-            
-            string xml=File.ReadAllText(path);
-                                 
-            foreach (IAssetFile file in myAsset.AssetFiles.OrderBy(f=>f.ContentFileSize))
+
+            string xml = File.ReadAllText(path);
+
+            foreach (IAssetFile file in myAsset.AssetFiles.OrderBy(f => f.ContentFileSize))
             {
                 switchTxt += string.Format(videoBase, file.Name);
 
@@ -355,7 +357,7 @@ namespace ActionsProvider.AMS
             var manifestBlob = assetContainer.GetBlockBlobReference(manifestName);
             await manifestBlob.UploadTextAsync(Manifest);
 
-            var currentFile = await myAsset.AssetFiles.CreateAsync(manifestName,new CancellationToken());
+            var currentFile = await myAsset.AssetFiles.CreateAsync(manifestName, new CancellationToken());
             manifestBlob.FetchAttributes();
             currentFile.ContentFileSize = manifestBlob.Properties.Length;
             currentFile.IsPrimary = setAsPrimary;
@@ -366,7 +368,7 @@ namespace ActionsProvider.AMS
 
             result.Status = "OK";
             result.StatusMessage = "Created Manifest";
-            
+
             return result;
         }
         public async Task<WMAssetOutputMessage> AddWatermarkedMediaFiletoAsset(string WatermarkedAssetId, string WMEmbedCode, string MMRKURL, TraceWriter log)
@@ -404,7 +406,7 @@ namespace ActionsProvider.AMS
                 result.StatusMessage = destBlob.Name + " added to watermarked asset";
                 result.EmbedCode = WMEmbedCode;
                 result.WMAssetId = WatermarkedAssetId;
-                
+
                 var currentFile = Asset.AssetFiles.Create(name);
                 sourceBlob.FetchAttributes();
                 currentFile.ContentFileSize = sourceBlob.Properties.Length;
