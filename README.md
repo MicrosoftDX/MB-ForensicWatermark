@@ -3,6 +3,8 @@
 
 **MB-Forensic** is composed by a orchestrate (Logic App), Actions (Azure Functions) and watermarker container on Kubernetes cluster. The process are expose by REST APIs making easy integration with existing MAM or workflows managers. 
 
+![General diagram](./doc/model.jpg)
+
 # Getting Started
 ## Installation, build and Test process
 
