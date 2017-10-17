@@ -16,6 +16,7 @@ using System.Web;
 using System.IO;
 using Microsoft.WindowsAzure.Storage.Queue.Protocol;
 using System.Threading;
+using System.Diagnostics;
 
 namespace ActionsProvider.AMS
 {
@@ -236,6 +237,7 @@ namespace ActionsProvider.AMS
             catch (Exception ex)
             {
                 // log errror
+                Trace.TraceError($"ProcessCreateLocator Error {ex.Message}");
                 return;
             }
 
@@ -254,7 +256,7 @@ namespace ActionsProvider.AMS
             catch (Exception ex)
             {
                 //log"Error. Could not create a locator for '{0}' (is the asset encrypted, or locators quota has been reached ?)", AssetToP.Name, true);
-
+                Trace.TraceError($"ProcessCreateLocator Error {ex.Message}");
                 return;
             }
             if (locator == null) return;
