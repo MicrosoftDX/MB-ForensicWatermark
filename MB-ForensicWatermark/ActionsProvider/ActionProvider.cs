@@ -120,6 +120,7 @@ namespace ActionsProvider
                 {
                     Trace.TraceError($"EvalPEmbeddedNotifications Error: {X.Message}");
                     CloudQueue deadletter = queueClient.GetQueueReference("deadletter");
+                    await deadletter.CreateIfNotExistsAsync();
                     await deadletter.AddMessageAsync(message);
                 }
                 await queue.DeleteMessageAsync(message);
@@ -442,6 +443,7 @@ namespace ActionsProvider
                 {
                     Trace.TraceError($"EvalPreprocessorNotifications Error: {X.Message}");
                     CloudQueue deadletter = queueClient.GetQueueReference("deadletter");
+                    await deadletter.CreateIfNotExistsAsync();
                     await deadletter.AddMessageAsync(message);
                 }
                 await queue.DeleteMessageAsync(message);

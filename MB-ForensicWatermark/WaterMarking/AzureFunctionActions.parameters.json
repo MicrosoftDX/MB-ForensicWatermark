@@ -3,31 +3,31 @@
   "contentVersion": "1.0.0.0",
   "parameters": {
     "functionAppName": {
-      "value": ""
+      "value": "jpggwaterconfigtest"
     },
     "TenantId": {
-      "value": ""
+      "value": "72f988bf-86f1-41af-91ab-2d7cd011db47"
     },
     "ClientId": {
-      "value": ""
+      "value": "e0b9b643-5340-4382-ad3f-f8a670b250c4"
     },
     "ClientSecret": {
-      "value": ""
+      "value": "AvzT4zacG/dogU4VSXNwJNYKAmgqXOYJPEecbm6CgHA="
     },
     "AMSApiUri": {
-      "value": ""
+      "value": "https://mediabutlerdev.restv2.eastus.media.azure.net/api/"
     },
     "AMSStorageConStr": {
-      "value": ""
+      "value": "DefaultEndpointsProtocol=https;AccountName=mediabutlerdevstorage;AccountKey=QE8yjM9cY5Pq/QNvbmkvf0tR6jDKOnuqrS1+i2NUclEY+o5ixvSsZIlvuU1Jt41fFTSwl0DXSTdSWog6O2V5mg=="
     },
     "K8SURL": {
-      "value": ""
+      "value": "https://jpggk8scluster-jpggk8s-4b07ee.westus.cloudapp.azure.com/"
     },
     "K8SURLTOKEN": {
-      "value": ""
+      "value": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJrdWJlcm5ldGVzL3NlcnZpY2VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc3BhY2UiOiJkZWZhdWx0Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9zZWNyZXQubmFtZSI6ImRlZmF1bHQtdG9rZW4tdnE5bmoiLCJrdWJlcm5ldGVzLmlvL3NlcnZpY2VhY2NvdW50L3NlcnZpY2UtYWNjb3VudC5uYW1lIjoiZGVmYXVsdCIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnQvc2VydmljZS1hY2NvdW50LnVpZCI6Ijk0ZjJlZjdiLWI0ZTYtMTFlNy05ZmIxLTAwMGQzYTMzMDg5NCIsInN1YiI6InN5c3RlbTpzZXJ2aWNlYWNjb3VudDpkZWZhdWx0OmRlZmF1bHQifQ.BNfDeECrXmQPo8fr-DAedJsEbyNmmk9lZtcAtcfeiN6Bt0tOvFjdnYwzpw5gzv-2vyESGpfIJuXnZvwNazn-sOf8i1QMVdFWO-wkkGY9sId7cY-vSbnQm7LRRIPACcAEEVlEom7ICe6hHVq7dcaRsy1eWIVUaqdwqxzD9HXHB0DJuBFIRrPbdVHJGGZKMzsG7iNA8pIaJNRoU0FOXqE6IF7FzFn1pGIYq8WyJ7o6jLFXRxZdxtEWWMWoD6tRfmX-rOiO6rnD6c-ASLopCRu2a4cZAfHa_i8b6oncn-EtXFukaLMFK3T1KHeewvjOu6y7WqfIQPhgYwwR7AnsmRlY6w"
     },
     "imageName": {
-      "value": ""
+      "value": "jpggk8sregistry.azurecr.io/nexguard/allinone:0.4.8"
     }
   }
 }

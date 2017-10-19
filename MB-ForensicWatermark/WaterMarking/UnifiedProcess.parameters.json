@@ -3,10 +3,10 @@
   "contentVersion": "1.0.0.0",
   "parameters": {
     "yourapp": {
-      "value": "[sub domain of your Azure function URL. For example, on if this is your Function URL https://functionapp666.azurewebsites.net/ yourapp value has to be functionapp666]"
+      "value": "jpggwaterconfigtest"
     },
     "HostKeys": {
-      "value": "[Azure Function Host Key created on Function deployment step]"
+      "value": "hFYPvliJp2RJQrxjW7nEq4j1XMwStg6MtxkVGWqPuCz2fRkTapCVfQ=="
     }
   }
 }
