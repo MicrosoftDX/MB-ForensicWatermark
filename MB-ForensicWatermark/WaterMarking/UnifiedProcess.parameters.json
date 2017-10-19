@@ -3,10 +3,10 @@
   "contentVersion": "1.0.0.0",
   "parameters": {
     "yourapp": {
-      "value": "jpggwaterconfigtest"
+      "value": ""
     },
     "HostKeys": {
-      "value": "hFYPvliJp2RJQrxjW7nEq4j1XMwStg6MtxkVGWqPuCz2fRkTapCVfQ=="
+      "value": ""
     }
   }
 }
