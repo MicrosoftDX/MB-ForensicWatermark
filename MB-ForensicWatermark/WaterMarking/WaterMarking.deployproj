@@ -29,8 +29,12 @@
       <Visible>False</Visible>
     </None>
     <Content Include="Deploy-AzureResourceGroup.ps1" />
-    <None Include="UnifiedProcess.json" />
-    <None Include="UnifiedProcess.parameters.json" />
+    <Content Include="UnifiedProcess.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="UnifiedProcess.parameters.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
   <Target Name="GetReferenceAssemblyPaths" />
 </Project>
