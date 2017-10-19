@@ -457,7 +457,7 @@ namespace ActionsProvider
             string path;
             if (Environment.GetEnvironmentVariable("HOME") != null)
             {
-                path = Environment.GetEnvironmentVariable("HOME") + @"\site\wwwroot" + @"\bin\Files\jobbase.txt";
+                path = Environment.GetEnvironmentVariable("HOME") + @"\site\wwwroot" + @"\bin\Files\jobase.txt";
             }
             else
             {
