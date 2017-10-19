@@ -7,37 +7,43 @@ This tutorial cover create and configuration of Storage, Azure Functions and Log
 
 # Getting Started
 ## Deploying process
-### Watermark Storage Account
-First of all you have to create a Azure Resource Group and Azure Storage account in it. On these storage you have to create 2 Azure queues on it.
-1. **embeddernotification**: this queue receive output notification from watermark embedder process.
-2. **preprocessorout**: this queue receive output notification from watermark preprocessor process.
 
-### Azure functions WaterMArkingActions
+
+### Step 1: Azure functions WaterMArkingActions
 Azure Functions project called **WaterMArkingActions** implement all Action logic and it is call from Logic APPS process.
 
-Before deploy **WaterMArkingActions** you have to had created Azure Resource Group and Azure Storage on IT 
-(previews step). Next, you could deploy functions using right click on project Name Publish.
+Deploy is base on use Azure Resource manager templates. you could see more information about templates <a href="https://docs.microsoft.com/en-us/azure/azure-resource-manager/resource-group-template-deploy" target="_blank">https://docs.microsoft.com/en-us/azure/azure-resource-manager/resource-group-template-deploy</a>
 
-After success deployed Azure Function, you need to add configuration Application settings.
+Template **AzureFunctionActions.json** will deploy:
 
-1. **Storageconn**: Azure Storage connection string of Azure watermark Storage. It use to keep MMRK files and watermark process information.
-2. **TenantId**: your Azure AD TENANT DOMAIN
-3. **ClientId**: your Azure AD client ID, to connect to Azure Media Services
-4. **ClientSecret**: your Azure AD client secret, to connect to Azure Media Services
-5. **AMSApiUri**: your Azure Media Services REST API Endpoint
-6. **AMSStorageConStr**: Azure Media Services Storage connection string
-7. **K8SURL**: Kubernetes cluster REST API endpoint
-8. **K8SURLTOKEN**: Kubernetes cluster REST API token
-9. **imageName**: container image name of your watermarking container.
-10. **K8SJobAggregation**: Number of rendition to put on the first K8S job. for example on a 5 renditions video, if you use 4, 4 lower rendition will go in one K8S job and the highest resolution will go on a separate job.
-11. **gopsize**: GOP size
-12. **KeepWatermakedBlobs**: keep or not on intermediary blob storage the output MP4 after watermark process, default is false. Only use true for debugging activities. 
-13. **K8SJobAggregationOnlyEmb**: (Optional) Default 1, For Embedded process only, it is the rendition JOB aggregation level.
+a. Azure Storage Account
+b. Azure Hosting Plan
+c. Azure Function
 
-After you setup all Function configuration you have to create a **Host Key**. That key will use by Logic Apps process to call all functions, so you will use that Key on Logic App configuration. 
+Templates parameters are:
+
+* **functionAppName*: Azure function name, it has to be unique
+* **TenantId**: your Azure AD TENANT DOMAIN
+* **TenantId**: your Azure AD TENANT DOMAIN
+* **ClientId**: your Azure AD client ID, to connect to Azure Media Services
+* **ClientSecret**: your Azure AD client secret, to connect to Azure Media Services
+* **AMSApiUri**: your Azure Media Services REST API Endpoint
+* **AMSStorageConStr**: Azure Media Services Storage connection string
+* **K8SURL**: Kubernetes cluster REST API endpoint
+* **K8SURLTOKEN**: Kubernetes cluster REST API token
+* **imageName**: container image name of your watermarking container.
+* **K8SJobAggregation**: Number of rendition to put on the first K8S job. for example on a 5 renditions video, if you use 4, 4 lower rendition will go in one K8S job and the highest resolution will go on a separate job.
+* **REPOURL**: Github code repository. Use your own Fork, default URL is https://github.com/MicrosoftDX/MB-ForensicWatermark.git
 
 
-### Logic Apps process
+After deploy this first template you have to create a Azure Function Host key. 
+
+**Host keys** are shared by all functions within the function app. When used as an API key, these allow access to any function within the function app. More information about <a href="https://docs.microsoft.com/en-us/azure/azure-functions/functions-bindings-http-webhook#working-with-keys" target="_blank">Azure Function Host Key </a>.
+
+That Host key and Function's name are parameters for the next step. 
+
+
+### Step 2: Logic Apps process
 To deploy a Logic APP with visual studio check https://docs.microsoft.com/en-us/azure/logic-apps/logic-apps-deploy-from-vs#deploy-your-logic-app-from-visual-studio
 
 As I mentioned before Logic APPS uses Azure functions to implement same of their actions on the logic process, so you need to have deployed Azure Functions before to configure Logic APPS because you need Azure function URL and KEY.
@@ -46,21 +52,20 @@ As I mentioned before Logic APPS uses Azure functions to implement same of their
 #### Logic Apps UnifiedProcess
 This orchestration process to generate a Azure Media Services watermarked asset copy. 
 The process configuration is on *UnifiedProcess.parameters* file, and it include
-1. **yourapp**: sub domain of your Azure function URL. For example, on if this is your Function URL https://functionapp666.azurewebsites.net/ yourapp value has to be **functionapp666**
-2. **HostKeys**: It is Azure Function Host Key created on Function deployment step.
+* **yourapp**: sub domain of your Azure function URL. For example, on if this is your Function URL https://functionapp666.azurewebsites.net/ yourapp value has to be **functionapp666**
+* **HostKeys**: It is Azure Function Host Key created on Function deployment step.
 
 
 ### Test Deployment 
 After you finish deployment process you will have on the same resource group
 
-1. Azure Function 
-2. Azure Storage 
-3. API Connection
+1.  Azure Storage
+2. Azure App Service plan
+3. Azure Function
 4. UnifiedProcess Logic App
-5. embebbedNotifications Logic APP
-6. PreprocessorB Logic APP
 
- So, to test **UnifiedProcess** you need to execute a POST CALL to CallBack URL specifying **AssetId** of original Assset and **EmbebedCodes** list. Each code on the list will produce a new Asset copy on AMS.
+
+So, to test **UnifiedProcess** you need to execute a POST CALL to CallBack URL specifying **AssetId** of original Assset and **EmbebedCodes** list. Each code on the list will produce a new Asset copy on AMS.
 
 ```json
 POST /workflows/[** your workflowwid here ***]/triggers/manual/paths/invoke?api-version=2016-06-01&amp;sp=%2Ftriggers%2Fmanual%2Frun&amp;sv=1.0&amp;sig=[** your sig **] HTTP/1.1
@@ -122,6 +127,3 @@ Postman-Token: b9994858-53f0-c98d-02a0-370059a56a03
 	"JobID": "08586993026535557503409978660"
 }
 ```
-
-
-

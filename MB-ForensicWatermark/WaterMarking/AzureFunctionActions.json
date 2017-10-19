@@ -67,7 +67,7 @@
       "type": "string",
       "defaultValue": "https://github.com/MicrosoftDX/MB-ForensicWatermark.git",
       "metadata": {
-        "description": "Githube code repo. Use your own Fork."
+        "description": "Github code repo. Recomendation: use your own Fork."
       }
     }
   },
