@@ -156,6 +156,11 @@ namespace WaterMarkingActions
             string ParentAssetID = manifest.AssetStatus.AssetId;
 
             List<WaterMarkedAssetInfo> UpdatedInfo = new List<WaterMarkedAssetInfo>();
+
+            try
+            {
+
+            
             //List only Finished without AsstID
             foreach (var watermarkedInfo in manifest.EmbebedCodesList)
             {
@@ -192,7 +197,12 @@ namespace WaterMarkingActions
             manifest.EmbebedCodesList = UpdatedInfo;
 
             myActions.UpdateUnifiedProcessStatus(manifest);
+            }
+            catch (Exception X)
+            {
 
+                return req.CreateResponse(HttpStatusCode.InternalServerError, X, JsonMediaTypeFormatter.DefaultMediaType);
+            }
             return req.CreateResponse(HttpStatusCode.OK, manifest, JsonMediaTypeFormatter.DefaultMediaType);
         }
 
