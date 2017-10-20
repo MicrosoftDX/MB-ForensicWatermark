@@ -336,7 +336,7 @@ namespace ActionsProvider.AMS
 
             if (Environment.GetEnvironmentVariable("HOME") != null)
             {
-                path = Environment.GetEnvironmentVariable("HOME") + @"\site\wwwroot" + @"\bin\Files\ManifestBase.xml";
+                path = Environment.GetEnvironmentVariable("HOME") + @"\site\wwwroot" + @"\Files\ManifestBase.xml";
             }
             else
             {
