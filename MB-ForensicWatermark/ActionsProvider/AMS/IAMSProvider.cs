@@ -9,7 +9,7 @@ namespace ActionsProvider.AMS
 {
     public interface IAMSProvider
     {
-        List<string> GetAssetMP4FilesURL(string AssetId);
+        
         void DeleteAsset(string AssetId);
         Task<ManifestInfo> GetK8SJobManifestAsync(string AssetID, string JobID, List<string> codes);
         Task<WMAssetOutputMessage> AddWatermarkedMediaFiletoAsset(string WatermarkedAssetId, string WMEmbedCode, string MMRKURL, TraceWriter log);

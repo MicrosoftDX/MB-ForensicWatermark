@@ -194,19 +194,7 @@ namespace ActionsProvider.AMS
         }
         #endregion
         #region AMS Creation and Management
-        public List<string> GetAssetMP4FilesURL(string AssetId)
-        {
-            List<string> urls = new List<string>();
-            var myAssset = _mediaContext.Assets.Where(a => a.Id == AssetId).FirstOrDefault();
-            var locator = myAssset.Locators.Where(l => l.Type == LocatorType.OnDemandOrigin).FirstOrDefault();
-            IEnumerable<IAssetFile> mp4AssetFiles = myAssset.AssetFiles.ToList().Where(af => af.Name.EndsWith(".mp4", StringComparison.OrdinalIgnoreCase));
-            foreach (var file in mp4AssetFiles)
-            {
-                var name = System.Web.HttpUtility.UrlPathEncode(file.Name);
-                urls.Add($"{locator.Path}{name}");
-            }
-            return urls;
-        }
+        
         public void DeleteAsset(string AssetId)
         {
             IAsset X = _mediaContext.Assets.Where(a => a.Id == AssetId).FirstOrDefault();
