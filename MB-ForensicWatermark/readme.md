@@ -14,7 +14,7 @@ Azure Functions project called **WaterMArkingActions** implement all Action logi
 
 Deploy is base on use Azure Resource manager templates. you could see more information about templates <a href="https://docs.microsoft.com/en-us/azure/azure-resource-manager/resource-group-template-deploy" target="_blank">https://docs.microsoft.com/en-us/azure/azure-resource-manager/resource-group-template-deploy</a>
 
-Template **AzureFunctionActions.json** will deploy:
+Template **<a href="https://github.com/MicrosoftDX/MB-ForensicWatermark/blob/master/MB-ForensicWatermark/WaterMarking/AzureFunctionActions.json" target="_blank">AzureFunctionActions.json</a>** will deploy:
 
 a. Azure Storage Account
 b. Azure Hosting Plan
@@ -50,10 +50,15 @@ As I mentioned before Logic APPS uses Azure functions to implement same of their
 
 
 #### Logic Apps UnifiedProcess
-This orchestration process to generate a Azure Media Services watermarked asset copy. 
-The process configuration is on *UnifiedProcess.parameters* file, and it include
+This orchestration process generate a Azure Media Services watermarked asset copy. 
+
+To deploy this Logic Apps you need to use ARM template  file <a href="https://github.com/MicrosoftDX/MB-ForensicWatermark/blob/master/MB-ForensicWatermark/WaterMarking/UnifiedProcess.json" target="_blank">**UnifiedProcess.json**</a> on same resource group that you used on first step.
+
+The process configuration is on **UnifiedProcess.parameters** file, and it include
 * **yourapp**: sub domain of your Azure function URL. For example, on if this is your Function URL https://functionapp666.azurewebsites.net/ yourapp value has to be **functionapp666**
 * **HostKeys**: It is Azure Function Host Key created on Function deployment step.
+
+
 
 
 ### Test Deployment 
