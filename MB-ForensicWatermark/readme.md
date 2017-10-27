@@ -14,11 +14,16 @@ Azure Functions project called **WaterMArkingActions** implement all Action logi
 
 Deploy is base on use Azure Resource manager templates. you could see more information about templates <a href="https://docs.microsoft.com/en-us/azure/azure-resource-manager/resource-group-template-deploy" target="_blank">https://docs.microsoft.com/en-us/azure/azure-resource-manager/resource-group-template-deploy</a>
 
+
+<a href="https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FMicrosoftDX%2FMB-ForensicWatermark%2Fmaster%2FMB-ForensicWatermark%2FWaterMarking%2FAzureFunctionActions.json" target="_blank">![](http://azuredeploy.net/deploybutton.png)</a>
+
 Template **<a href="https://github.com/MicrosoftDX/MB-ForensicWatermark/blob/master/MB-ForensicWatermark/WaterMarking/AzureFunctionActions.json" target="_blank">AzureFunctionActions.json</a>** will deploy:
+
 
 a. Azure Storage Account
 b. Azure Hosting Plan
 c. Azure Function
+
 
 Templates parameters are:
 
@@ -35,6 +40,7 @@ Templates parameters are:
 * **K8SJobAggregation**: Number of rendition to put on the first K8S job. for example on a 5 renditions video, if you use 4, 4 lower rendition will go in one K8S job and the highest resolution will go on a separate job.
 * **REPOURL**: Github code repository. Use your own Fork, default URL is https://github.com/MicrosoftDX/MB-ForensicWatermark.git
 
+### Step 2: Generate Azure Function Host Key
 
 After deploy this first template you have to create a Azure Function Host key. 
 
@@ -43,25 +49,23 @@ After deploy this first template you have to create a Azure Function Host key.
 That Host key and Function's name are parameters for the next step. 
 
 
-### Step 2: Logic Apps process
-To deploy a Logic APP with visual studio check https://docs.microsoft.com/en-us/azure/logic-apps/logic-apps-deploy-from-vs#deploy-your-logic-app-from-visual-studio
+### Step 3: Logic Apps UnifiedProcess
 
-As I mentioned before Logic APPS uses Azure functions to implement same of their actions on the logic process, so you need to have deployed Azure Functions before to configure Logic APPS because you need Azure function URL and KEY.
+This orchestration process generate a Azure Media Services watermarked asset copy.
 
+To deploy this Logic Apps you need to use ARM template  file <a href="https://github.com/MicrosoftDX/MB-ForensicWatermark/blob/master/MB-ForensicWatermark/WaterMarking/UnifiedProcess.json" target="_blank">**UnifiedProcess.json**</a> on same resource group that you used on first step or next Deployment blue button.
 
-#### Logic Apps UnifiedProcess
-This orchestration process generate a Azure Media Services watermarked asset copy. 
+<a href="https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FMicrosoftDX%2FMB-ForensicWatermark%2Fmaster%2FMB-ForensicWatermark%2FWaterMarking%2FUnifiedProcess.json" target="_blank">![](http://azuredeploy.net/deploybutton.png)</a>
 
-To deploy this Logic Apps you need to use ARM template  file <a href="https://github.com/MicrosoftDX/MB-ForensicWatermark/blob/master/MB-ForensicWatermark/WaterMarking/UnifiedProcess.json" target="_blank">**UnifiedProcess.json**</a> on same resource group that you used on first step.
+Template parameters are
 
-The process configuration is on **UnifiedProcess.parameters** file, and it include
 * **yourapp**: sub domain of your Azure function URL. For example, on if this is your Function URL https://functionapp666.azurewebsites.net/ yourapp value has to be **functionapp666**
 * **HostKeys**: It is Azure Function Host Key created on Function deployment step.
 
 
 
 
-### Test Deployment 
+### Final Step: Test Deployment 
 After you finish deployment process you will have on the same resource group
 
 1.  Azure Storage
