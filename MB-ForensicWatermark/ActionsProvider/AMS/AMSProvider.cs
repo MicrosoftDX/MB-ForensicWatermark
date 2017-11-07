@@ -28,29 +28,24 @@ namespace ActionsProvider.AMS
         CloudBlobClient _WaterMArkStorageBlobClient;
         CloudStorageAccount _AMSStorageAccount;
         CloudBlobClient _AMSStorageBlobClient;
-        private string GetBlobSasUri(string containerName, string BlobName)
+        string _PUBLISHWATERKEDCOPY;
+
+        private string GetBlobSasUri(CloudBlobClient stClient, string containerName, string BlobName, SharedAccessBlobPermissions Permissions, int hours)
         {
             //Get a reference to a blob within the container.
-            CloudBlobContainer container = _WaterMArkStorageBlobClient.GetContainerReference(containerName);
+            CloudBlobContainer container = stClient.GetContainerReference(containerName);
             container.CreateIfNotExists();
             CloudBlockBlob blob = container.GetBlockBlobReference(BlobName);
             SharedAccessBlobPolicy sasConstraints = new SharedAccessBlobPolicy
             {
                 SharedAccessStartTime = DateTimeOffset.UtcNow.AddMinutes(-5),
-                SharedAccessExpiryTime = DateTimeOffset.UtcNow.AddHours(48),
-                Permissions =
-                    SharedAccessBlobPermissions.Read |
-                    SharedAccessBlobPermissions.Write |
-                    SharedAccessBlobPermissions.Add |
-                    SharedAccessBlobPermissions.Create
+                SharedAccessExpiryTime = DateTimeOffset.UtcNow.AddHours(hours),
+                Permissions = Permissions
             };
-
             string sasBlobToken = blob.GetSharedAccessSignature(sasConstraints);
-
-            //Return the URI string for the container, including the SAS token.
             return blob.Uri + sasBlobToken;
         }
-        public AMSProvider(string TenantId, string ClientId, string ClientSecret, Uri AMSApiUri, string WaterMarkStorageConStr, string AMSStorageConStr)
+        public AMSProvider(string TenantId, string ClientId, string ClientSecret, Uri AMSApiUri, string WaterMarkStorageConStr, string AMSStorageConStr,string PUBLISHWATERKEDCOPY)
         {
             AzureAdClientSymmetricKey clientSymmetricKey = new AzureAdClientSymmetricKey(ClientId, ClientSecret);
             var tokenCredentials = new AzureAdTokenCredentials(TenantId, clientSymmetricKey, AzureEnvironments.AzureCloudEnvironment);
@@ -64,6 +59,8 @@ namespace ActionsProvider.AMS
             //AMS Stoarge
             _AMSStorageAccount = CloudStorageAccount.Parse(AMSStorageConStr);
             _AMSStorageBlobClient = _AMSStorageAccount.CreateCloudBlobClient();
+
+            _PUBLISHWATERKEDCOPY = PUBLISHWATERKEDCOPY;
         }
         #region K8S JOB Manifest       
         private VideoInformation ParseGopBitrateFilter(VideoInformation xVideo)
@@ -77,7 +74,7 @@ namespace ActionsProvider.AMS
             xVideo.gopsize = System.Configuration.ConfigurationManager.AppSettings["gopsize"];
             return xVideo;
         }
-        private VideoInformation CreateVideoInformationK28JobNode(string FileName, string AssetID, string AssetLocatorPath)
+        private VideoInformation CreateVideoInformationK28JobNode(string FileName, IAsset theAsset, string AssetLocatorPath)
         {
             VideoInformation videoinfo = new VideoInformation()
             {
@@ -86,26 +83,51 @@ namespace ActionsProvider.AMS
             var EncodeFileName = System.Web.HttpUtility.UrlPathEncode(videoinfo.FileName);
 
             IActionsProvider xman = ActionProviderFactory.GetActionProvider();
-            var assetStatus = xman.GetAssetStatus(AssetID);
+            var assetStatus = xman.GetAssetStatus(theAsset.Id);
             if (assetStatus.State == ExecutionStatus.Finished)
             {
                 videoinfo.MP4URL = "";
             }
             else
             {
-                videoinfo.MP4URL = $"{AssetLocatorPath}{EncodeFileName}";
+                if (!string.IsNullOrEmpty(AssetLocatorPath))
+                {
+                    //USE Streaming server URL
+                    videoinfo.MP4URL = $"{AssetLocatorPath}{EncodeFileName}";
+                }
+                else
+                {
+                    //USES SAS URL
+                    videoinfo.MP4URL = GetBlobSasUri(
+                        _AMSStorageBlobClient,
+                        theAsset.Uri.Segments[1],
+                        EncodeFileName,
+                        SharedAccessBlobPermissions.Read,
+                        48
+                        );
+                }
+                
             }
-
-            videoinfo.MMRKURL = GetBlobSasUri("mmrkrepo", $"{AssetID}/{EncodeFileName}.mmrk");
-
+            SharedAccessBlobPermissions p =
+                        SharedAccessBlobPermissions.Read |
+                        SharedAccessBlobPermissions.Write |
+                        SharedAccessBlobPermissions.Add |
+                        SharedAccessBlobPermissions.Create;
+            videoinfo.MMRKURL = GetBlobSasUri(_WaterMArkStorageBlobClient, "mmrkrepo", $"{theAsset.Id}/{EncodeFileName}.mmrk",p,48);
             //Update GOP, Bitrate and Video filter
             return ParseGopBitrateFilter(videoinfo);
         }
-        private ManifestInfo GetManifest5Jobs(ManifestInfo manifestInfo, string AssetID, IEnumerable<IAssetFile> mp4AssetFiles, string AssetLocatorPath)
+        private ManifestInfo GetManifest5Jobs(ManifestInfo manifestInfo,IAsset theAsset, IEnumerable<IAssetFile> mp4AssetFiles, string AssetLocatorPath)
         {
+            SharedAccessBlobPermissions allAccess =
+                        SharedAccessBlobPermissions.Read |
+                        SharedAccessBlobPermissions.Write |
+                        SharedAccessBlobPermissions.Add |
+                        SharedAccessBlobPermissions.Create;
+
             foreach (var file in mp4AssetFiles.OrderBy(f => f.ContentFileSize))
             {
-                VideoInformation video = CreateVideoInformationK28JobNode(file.Name, AssetID, AssetLocatorPath);
+                VideoInformation video = CreateVideoInformationK28JobNode(file.Name, theAsset, AssetLocatorPath);
                 manifestInfo.VideoInformation.Add(video);
                 //Watermarked
                 foreach (var code in manifestInfo.EnbebedCodes)
@@ -114,7 +136,7 @@ namespace ActionsProvider.AMS
                     code.MP4WatermarkedURL.Add(new MP4WatermarkedURL()
                     {
                         FileName = video.FileName,
-                        WaterMarkedMp4 = GetBlobSasUri("watermarked", $"{AssetID}/{code.EmbebedCode}/{wmp4Name}")
+                        WaterMarkedMp4 = GetBlobSasUri(_WaterMArkStorageBlobClient,"watermarked", $"{theAsset.Id}/{code.EmbebedCode}/{wmp4Name}", allAccess,48)
                     });
                 }
             }
@@ -142,6 +164,7 @@ namespace ActionsProvider.AMS
         }
         public async Task<ManifestInfo> GetK8SJobManifestAsync(string AssetID, string JobID, List<string> codes)
         {
+            string AssetLocatorPath = "";
             string EmbedderNotificationQueue = await CreateSharedAccessPolicyAsync("embeddernotification", JobID);
             string PreprocessorNotificationQueue = await CreateSharedAccessPolicyAsync("preprocessorout", JobID);
             ManifestInfo myData = new ManifestInfo
@@ -171,24 +194,24 @@ namespace ActionsProvider.AMS
             }
             catch (Exception X)
             {
-
                 throw new Exception($"AssetID {AssetID} not found. Error: {X.Message}");
             }
 
             var AssetLocator = currentAsset.Locators.Where(l => l.Type == LocatorType.OnDemandOrigin).FirstOrDefault();
             if (AssetLocator == null)
             {
-                //Asset Error
-                throw new Exception("Asset Has not On demand locator origen");
+                //Use Blob SAS URL
+                AssetLocatorPath = "";
+            }
+            else
+            {
+                AssetLocatorPath = AssetLocator.Path;
             }
             IEnumerable<IAssetFile> mp4AssetFiles = currentAsset.AssetFiles.ToList().Where(af => af.Name.EndsWith(".mp4", StringComparison.OrdinalIgnoreCase)).OrderBy(f => f.ContentFileSize);
-            int lala = 0;
-            switch (lala)
-            {
-                default:
-                    myData = GetManifest5Jobs(myData, AssetID, mp4AssetFiles, AssetLocator.Path);
-                    break;
-            }
+
+
+            myData = GetManifest5Jobs(myData, /*AssetID*/ currentAsset, mp4AssetFiles, AssetLocatorPath);
+
 
             return myData;
         }
@@ -289,10 +312,7 @@ namespace ActionsProvider.AMS
                 IAsset newWatermarkedAsset = await _mediaContext.Assets.CreateAsync(NewAssetName, AssetCreationOptions.None, myToken);
                 newWatermarkedAsset.AlternateId = $"{SourceAssetId}-{WMEmbedCode}";
                 await newWatermarkedAsset.UpdateAsync();
-
-
                 result.Status = result.Status = "Finished"; ;
-
                 result.EmbedCode = WMEmbedCode;
                 result.WMAssetId = newWatermarkedAsset.Id;
             }
@@ -381,7 +401,6 @@ namespace ActionsProvider.AMS
             CloudBlockBlob sourceBlob = new CloudBlockBlob(new Uri(MMRKURL));
 
             // Get a reference to the destination blob (in this case, a new blob).
-            //https://XXXXXXXXXXXXXXXX.blob.core.windows.net/asset-f073197d-e853-4683-b987-3c7c687daeec/nb:cid:UUID:6b59a856-e513-4232-bb40-1e90cd47bf9b/1000/Chile%20Travel%20Promotional%20Video72_1280x720_2000.mp4
             string name = HttpUtility.UrlDecode(HttpUtility.UrlDecode(Path.GetFileName(sourceBlob.Uri.AbsolutePath)));
             CloudBlockBlob destBlob = DestinationBlobContainer.GetBlockBlobReference(name);
 
@@ -406,20 +425,23 @@ namespace ActionsProvider.AMS
                 Asset.Update();
 
                 #region Add Locator to new Media Asset
-                if (Asset.Locators.Where(l => l.Type == LocatorType.OnDemandOrigin).Count() == 0)
+                if (_PUBLISHWATERKEDCOPY.ToLower()=="true")
                 {
-                    // This could be done at the "end", once for each newly created asset, instead of doing it after each file is added to the newly created asset
-                    LocatorType locatorType = LocatorType.OnDemandOrigin;
-                    AccessPermissions accessPolicyPermissions = AccessPermissions.Read | AccessPermissions.List;
-                    TimeSpan accessPolicyDuration = new TimeSpan(100 * 365, 1, 1, 1, 1);  // 100 years
-                    DateTime locaatorStartDate = DateTime.Now;
-                    string forceLocatorGuid = null;
+                    if (Asset.Locators.Where(l => l.Type == LocatorType.OnDemandOrigin).Count() == 0)
+                    {
+                        // This could be done at the "end", once for each newly created asset, instead of doing it after each file is added to the newly created asset
+                        LocatorType locatorType = LocatorType.OnDemandOrigin;
+                        AccessPermissions accessPolicyPermissions = AccessPermissions.Read | AccessPermissions.List;
+                        TimeSpan accessPolicyDuration = new TimeSpan(100 * 365, 1, 1, 1, 1);  // 100 years
+                        DateTime locaatorStartDate = DateTime.Now;
+                        string forceLocatorGuid = null;
 
-                    ProcessCreateLocator(locatorType, Asset, accessPolicyPermissions, accessPolicyDuration, locaatorStartDate, forceLocatorGuid);
-                }
-                else
-                {
-                    log.Info($"Assset {Asset.Id} already has OndemandOrigin");
+                        ProcessCreateLocator(locatorType, Asset, accessPolicyPermissions, accessPolicyDuration, locaatorStartDate, forceLocatorGuid);
+                    }
+                    else
+                    {
+                        log.Info($"Assset {Asset.Id} already has OndemandOrigin");
+                    }
                 }
                 #endregion
 

@@ -19,7 +19,8 @@ namespace ActionsProvider.AMS
             Uri AMSApiUri = new Uri( System.Configuration.ConfigurationManager.AppSettings["AMSApiUri"]);
             string Storageconn = System.Configuration.ConfigurationManager.AppSettings["Storageconn"];
             string AMSStorageConStr= System.Configuration.ConfigurationManager.AppSettings["AMSStorageConStr"];
-            return new AMSProvider(TenantId,ClientId,ClientSecret,AMSApiUri, Storageconn, AMSStorageConStr);
+            string PUBLISHWATERKEDCOPY= System.Configuration.ConfigurationManager.AppSettings["PUBLISHWATERKEDCOPY"] ?? "true";
+            return new AMSProvider(TenantId,ClientId,ClientSecret,AMSApiUri, Storageconn, AMSStorageConStr, PUBLISHWATERKEDCOPY);
         }
     }
 }
