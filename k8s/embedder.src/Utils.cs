@@ -13,7 +13,8 @@ namespace embedder
     using Microsoft.WindowsAzure.Storage.Blob;
     using Microsoft.WindowsAzure.Storage.Queue;
     using Newtonsoft.Json;
- 
+    using Polly;
+
     public static class Utils
     {
         public class ExecutionResult
@@ -128,23 +129,38 @@ namespace embedder
 
         public static async Task<ExecutionResult> DownloadToAsync(this Uri blobAbsoluteUri, FileInfo file, string prefix = "")
         {
-            try
-            {
-                //var blockBlob = new CloudBlockBlob(blobAbsoluteUri);
-                //return blockBlob.DownloadToFileAsync(path: file.FullName, mode: System.IO.FileMode.Create);
-
-                using (var client = new HttpClient())
-                using (var stream = await client.GetStreamAsync(blobAbsoluteUri))
-                using (var output = file.OpenWrite())
+            var retryResult = await Policy
+                .Handle<Exception>()
+                .WaitAndRetryAsync(
+                    retryCount: 5,
+                    sleepDurationProvider: attempt => TimeSpan.FromSeconds(Math.Pow(2, attempt)))
+                .ExecuteAndCaptureAsync(async () =>
                 {
-                    await stream.CopyToAsync(output);
-                }
+                    using (var client = new HttpClient())
+                    using (var stream = await client.GetStreamAsync(blobAbsoluteUri))
+                    using (var output = file.OpenWrite())
+                    {
+                        await stream.CopyToAsync(output);
+                    }
 
-                return new ExecutionResult { Success = true, Output = $"{prefix}: Downloaded {blobAbsoluteUri.AbsoluteUri} to {file.FullName}" };
-            }
-            catch (Exception ex)
+                    return new ExecutionResult
+                    {
+                        Success = true,
+                        Output = $"{prefix}: Downloaded {blobAbsoluteUri.AbsoluteUri} to {file.FullName}"
+                    };
+                });
+
+            if (retryResult.Outcome == OutcomeType.Successful)
             {
-                return new ExecutionResult { Success = false, Output = $"{prefix}: ERR during download: \"{ex.Message}\" {blobAbsoluteUri.AbsoluteUri}" };
+                return retryResult.Result;
+            }
+            else
+            {
+                return new ExecutionResult
+                {
+                    Success = false,
+                    Output = $"{prefix}: ERR during download: \"{retryResult.FinalException.Message}\" {blobAbsoluteUri.AbsoluteUri}"
+                };
             }
         }
 
