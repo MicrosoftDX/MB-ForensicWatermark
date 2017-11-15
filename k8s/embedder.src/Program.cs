@@ -12,6 +12,7 @@ namespace embedder
     using Newtonsoft.Json;
     using Microsoft.WindowsAzure.Storage.Queue;
     using static embedder.Utils;
+    using Polly;
 
     class Program
     {
@@ -109,6 +110,42 @@ namespace embedder
             var embedderTasks = embedderData.Select(_ => Program.RunEmbedderAsync(_, stdout, stderr));
             await Task.WhenAll(embedderTasks);
             stdout($"****Finish Embedder {DateTime.Now.ToString()}");
+
+            #region Delete all video files from pod filesystem
+
+            foreach (var pd in preprocessorData)
+            {
+                Policy
+                    .Handle<Exception>()
+                    .WaitAndRetryAsync(retryCount: 5, sleepDurationProvider: attempt => TimeSpan.FromSeconds(1))
+                    .Execute(() =>
+                    {
+                        if (pd.LocalFile.Exists)
+                        {
+                            pd.LocalFile.Delete();
+                        }
+                        if (pd.MmrkFile.Exists)
+                        {
+                            pd.MmrkFile.Delete();
+                        }
+                    });
+            }
+
+            foreach (var ed in embedderData)
+            {
+                Policy
+                    .Handle<Exception>()
+                    .WaitAndRetryAsync(retryCount: 5, sleepDurationProvider: attempt => TimeSpan.FromSeconds(1))
+                    .Execute(() =>
+                    {
+                        if (ed.WatermarkedFile.Exists)
+                        {
+                            ed.WatermarkedFile.Delete();
+                        }
+                    });
+            }
+
+            #endregion
 
             return 0;
         }
