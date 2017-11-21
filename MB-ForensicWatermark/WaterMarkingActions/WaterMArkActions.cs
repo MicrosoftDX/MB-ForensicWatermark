@@ -11,6 +11,7 @@ using Microsoft.Azure.WebJobs.Extensions.Http;
 using Microsoft.Azure.WebJobs.Host;
 using System;
 using System.Collections.Generic;
+using System.Dynamic;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
@@ -21,8 +22,6 @@ namespace WaterMarkingActions
 {
     public static class WaterMArkActions
     {
-
-
         [FunctionName("StartNewJob")]
         public static async Task<HttpResponseMessage> StartNewJob([HttpTrigger(AuthorizationLevel.Function, "post", Route = null)]HttpRequestMessage req, TraceWriter log)
         {
@@ -33,7 +32,6 @@ namespace WaterMarkingActions
             //Save Status
             IActionsProvider myActions = ActionProviderFactory.GetActionProvider();
             var status = myActions.StartNewProcess(AssetID, JobID, EmbebedCodes);
-
             return req.CreateResponse(HttpStatusCode.OK, status, JsonMediaTypeFormatter.DefaultMediaType);
         }
 
@@ -168,14 +166,14 @@ namespace WaterMarkingActions
                 {
                     //Create new asset per embbeded code
                     IAMSProvider help = AMSProviderFactory.CreateAMSProvider();
-                    var xx = await help.CreateEmptyWatermarkedAsset(manifest.JobStatus.JobID, ParentAssetID, watermarkedInfo.EmbebedCodeValue, log);
+                    var xx = await help.CreateEmptyWatermarkedAsset(manifest.JobStatus.JobID, ParentAssetID, watermarkedInfo.EmbebedCodeValue);
 
                     watermarkedInfo.AssetID = xx.WMAssetId;
                     ////Inject all Renders on New asset
                     foreach (var render in myActions.GetWaterMarkedRenders(ParentAssetID, watermarkedInfo.EmbebedCodeValue))
                     {
                         string url = render.MP4URL;
-                        var r = await help.AddWatermarkedMediaFiletoAsset(watermarkedInfo.AssetID, watermarkedInfo.EmbebedCodeValue, url, log);
+                        var r = await help.AddWatermarkedMediaFiletoAsset(watermarkedInfo.AssetID, watermarkedInfo.EmbebedCodeValue, url);
                         if (r.Status != "MMRK File Added")
                         {
                             //Error
@@ -272,11 +270,17 @@ namespace WaterMarkingActions
             IActionsProvider myActions = ActionProviderFactory.GetActionProvider();
             string AssetId = BodyData.AssetId;
             string JobID = BodyData.JobID;
-
-            var myProcessStatus = myActions.GetUnifiedProcessStatus(AssetId, JobID);
-            return req.CreateResponse(HttpStatusCode.OK, myProcessStatus, JsonMediaTypeFormatter.DefaultMediaType);
-
-
+                      
+            try
+            {
+                var myProcessStatus = myActions.GetUnifiedProcessStatus(AssetId, JobID);
+                return req.CreateResponse(HttpStatusCode.OK, myProcessStatus, JsonMediaTypeFormatter.DefaultMediaType);
+            }
+            catch (Exception X)
+            {
+                log.Error(X.Message);
+                return req.CreateResponse(HttpStatusCode.InternalServerError, X, JsonMediaTypeFormatter.DefaultMediaType);
+            }
         }
         [FunctionName("SubmiteWaterMarkJob")]
         public static async Task<HttpResponseMessage> SubmiteWaterMarkJob([HttpTrigger(AuthorizationLevel.Function, "post", Route = null)]HttpRequestMessage req, TraceWriter log, ExecutionContext context)
@@ -355,15 +359,28 @@ namespace WaterMarkingActions
             IAMSProvider myAMShelp = AMSProviderFactory.CreateAMSProvider();
 
             string AssetId = BodyData.AssetId;
-            string KeepWatermakedBlobs = System.Configuration.ConfigurationManager.AppSettings["KeepWatermakedBlobs"] ?? "false";
-
-            if (KeepWatermakedBlobs != "false")
+            try
             {
-                myAMShelp.DeleteWatermakedBlobRenders(AssetId, log);
+                string KeepWatermakedBlobs = System.Configuration.ConfigurationManager.AppSettings["KeepWatermakedBlobs"] ?? "false";
+
+                if (!(KeepWatermakedBlobs != "false"))
+                {
+                    myAMShelp.DeleteWatermakedBlobRenders(AssetId);
+
+                }
+                else
+                    log.Info($"Blob not deleted {AssetId}");
+                return req.CreateResponse(HttpStatusCode.OK, new { result = "ok" }, JsonMediaTypeFormatter.DefaultMediaType);
             }
+            catch (Exception X)
+            {
+
+                return req.CreateResponse(HttpStatusCode.InternalServerError, X, JsonMediaTypeFormatter.DefaultMediaType);
+            }
+           
 
 
-            return req.CreateResponse(HttpStatusCode.OK, new { result = "ok" }, JsonMediaTypeFormatter.DefaultMediaType);
+            
         }
 
         [FunctionName("DeleteSucceededPods")]
@@ -377,6 +394,8 @@ namespace WaterMarkingActions
             try
             {
                 var r = await k.DeletePods(prefixName, "Succeeded");
+                //var r = await k.DeletePods(JobId, prefixName, new List<string>());
+
                 return req.CreateResponse(r.Code, r, JsonMediaTypeFormatter.DefaultMediaType);
             }
             catch (Exception X)

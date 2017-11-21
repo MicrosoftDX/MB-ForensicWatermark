@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
-VisualStudioVersion = 15.0.26906.1
+VisualStudioVersion = 15.0.27110.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ActionsProvider", "ActionsProvider\ActionsProvider.csproj", "{234A9AE6-CD3D-49BA-B791-536281C3EE2F}"
 EndProject
@@ -53,7 +53,7 @@ Global
 		{6BE6BE3D-3F72-478A-B3D9-2D3D4AAA8017} = {1C2ACA2C-AFDC-469D-840F-2BB166C208CF}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
-		EnterpriseLibraryConfigurationToolBinariesPath = packages\TransientFaultHandling.Core.5.1.1209.1\lib\NET4
 		SolutionGuid = {9D05A431-6E93-4E29-B5FD-C1D2C02137CD}
+		EnterpriseLibraryConfigurationToolBinariesPath = packages\TransientFaultHandling.Core.5.1.1209.1\lib\NET4
 	EndGlobalSection
 EndGlobal

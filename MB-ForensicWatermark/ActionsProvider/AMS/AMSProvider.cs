@@ -5,16 +5,13 @@ using Microsoft.WindowsAzure.MediaServices.Client;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 using ActionsProvider.Entities;
 using Microsoft.WindowsAzure.Storage.Blob;
 using Microsoft.WindowsAzure.Storage;
-using Microsoft.Azure.WebJobs.Host;
 using Microsoft.WindowsAzure.Storage.Queue;
 using System.Web;
 using System.IO;
-using Microsoft.WindowsAzure.Storage.Queue.Protocol;
 using System.Threading;
 using System.Diagnostics;
 
@@ -29,7 +26,7 @@ namespace ActionsProvider.AMS
         CloudStorageAccount _AMSStorageAccount;
         CloudBlobClient _AMSStorageBlobClient;
         string _PUBLISHWATERKEDCOPY;
-
+        int _SASTTL;
         private string GetBlobSasUri(CloudBlobClient stClient, string containerName, string BlobName, SharedAccessBlobPermissions Permissions, int hours)
         {
             //Get a reference to a blob within the container.
@@ -45,7 +42,7 @@ namespace ActionsProvider.AMS
             string sasBlobToken = blob.GetSharedAccessSignature(sasConstraints);
             return blob.Uri + sasBlobToken;
         }
-        public AMSProvider(string TenantId, string ClientId, string ClientSecret, Uri AMSApiUri, string WaterMarkStorageConStr, string AMSStorageConStr,string PUBLISHWATERKEDCOPY)
+        public AMSProvider(string TenantId, string ClientId, string ClientSecret, Uri AMSApiUri, string WaterMarkStorageConStr, string AMSStorageConStr,string PUBLISHWATERKEDCOPY, int sasTtl)
         {
             AzureAdClientSymmetricKey clientSymmetricKey = new AzureAdClientSymmetricKey(ClientId, ClientSecret);
             var tokenCredentials = new AzureAdTokenCredentials(TenantId, clientSymmetricKey, AzureEnvironments.AzureCloudEnvironment);
@@ -61,6 +58,9 @@ namespace ActionsProvider.AMS
             _AMSStorageBlobClient = _AMSStorageAccount.CreateCloudBlobClient();
 
             _PUBLISHWATERKEDCOPY = PUBLISHWATERKEDCOPY;
+
+
+            _SASTTL = sasTtl;
         }
         #region K8S JOB Manifest       
         private VideoInformation ParseGopBitrateFilter(VideoInformation xVideo)
@@ -98,22 +98,15 @@ namespace ActionsProvider.AMS
                 else
                 {
                     //USES SAS URL
-                    videoinfo.MP4URL = GetBlobSasUri(
-                        _AMSStorageBlobClient,
-                        theAsset.Uri.Segments[1],
-                        EncodeFileName,
-                        SharedAccessBlobPermissions.Read,
-                        48
-                        );
+                    videoinfo.MP4URL = GetBlobSasUri(_AMSStorageBlobClient,theAsset.Uri.Segments[1],EncodeFileName,SharedAccessBlobPermissions.Read,_SASTTL);
                 }
-                
             }
             SharedAccessBlobPermissions p =
                         SharedAccessBlobPermissions.Read |
                         SharedAccessBlobPermissions.Write |
                         SharedAccessBlobPermissions.Add |
                         SharedAccessBlobPermissions.Create;
-            videoinfo.MMRKURL = GetBlobSasUri(_WaterMArkStorageBlobClient, "mmrkrepo", $"{theAsset.Id}/{EncodeFileName}.mmrk",p,48);
+            videoinfo.MMRKURL = GetBlobSasUri(_WaterMArkStorageBlobClient, "mmrkrepo", $"{theAsset.Id}/{EncodeFileName}.mmrk",p,_SASTTL);
             //Update GOP, Bitrate and Video filter
             return ParseGopBitrateFilter(videoinfo);
         }
@@ -136,7 +129,7 @@ namespace ActionsProvider.AMS
                     code.MP4WatermarkedURL.Add(new MP4WatermarkedURL()
                     {
                         FileName = video.FileName,
-                        WaterMarkedMp4 = GetBlobSasUri(_WaterMArkStorageBlobClient,"watermarked", $"{theAsset.Id}/{code.EmbebedCode}/{wmp4Name}", allAccess,48)
+                        WaterMarkedMp4 = GetBlobSasUri(_AMSStorageBlobClient,"watermarked", $"{theAsset.Id}/{code.EmbebedCode}/{wmp4Name}", allAccess, _SASTTL)
                     });
                 }
             }
@@ -223,17 +216,17 @@ namespace ActionsProvider.AMS
             IAsset X = _mediaContext.Assets.Where(a => a.Id == AssetId).FirstOrDefault();
             X.Delete();
         }
-        public void DeleteWatermakedBlobRenders(string AssetId, TraceWriter log)
+        public void DeleteWatermakedBlobRenders(string AssetId)
         {
-            CloudStorageAccount storageAccount = CloudStorageAccount.Parse(_WaterMarkStorageConStr);
-            CloudBlobClient blobClient = storageAccount.CreateCloudBlobClient();
-            CloudBlobContainer container = blobClient.GetContainerReference("watermarked");
+            CloudBlobContainer container = _AMSStorageBlobClient.GetContainerReference("watermarked");
+
             foreach (IListBlobItem item in container.ListBlobs(AssetId, true))
             {
                 if (item.GetType() == typeof(CloudBlockBlob))
                 {
                     CloudBlockBlob blob = (CloudBlockBlob)item;
                     blob.Delete();
+                    Trace.TraceInformation($"Deleted blob {blob.Name}");
                 }
             }
         }
@@ -293,7 +286,7 @@ namespace ActionsProvider.AMS
 
             return asset;
         }
-        public async Task<WMAssetOutputMessage> CreateEmptyWatermarkedAsset(string ProcessId, string SourceAssetId, string WMEmbedCode, TraceWriter log)
+        public async Task<WMAssetOutputMessage> CreateEmptyWatermarkedAsset(string ProcessId, string SourceAssetId, string WMEmbedCode)
         {
             WMAssetOutputMessage result = new WMAssetOutputMessage();
 
@@ -381,7 +374,7 @@ namespace ActionsProvider.AMS
 
             return result;
         }
-        public async Task<WMAssetOutputMessage> AddWatermarkedMediaFiletoAsset(string WatermarkedAssetId, string WMEmbedCode, string MMRKURL, TraceWriter log)
+        public async Task<WMAssetOutputMessage> AddWatermarkedMediaFiletoAsset(string WatermarkedAssetId, string WMEmbedCode, string MMRKURL)
         {
             WMAssetOutputMessage result = new WMAssetOutputMessage();
 
@@ -440,7 +433,7 @@ namespace ActionsProvider.AMS
                     }
                     else
                     {
-                        log.Info($"Assset {Asset.Id} already has OndemandOrigin");
+                        Trace.TraceInformation($"Assset {Asset.Id} already has OndemandOrigin");
                     }
                 }
                 #endregion
@@ -448,7 +441,7 @@ namespace ActionsProvider.AMS
             }
             catch (StorageException e)
             {
-                log.Verbose(e.Message);
+                Trace.TraceError(e.Message);
                 //throw;
                 result.MMRKURLAdded = MMRKURL;
                 result.Status = $"Copy error {e.Message}";

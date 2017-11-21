@@ -6,14 +6,10 @@ using Microsoft.WindowsAzure.Storage;
 using Microsoft.WindowsAzure.Storage.Table;
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
-using System.Net;
 using System.Net.Http;
-using System.Net.Http.Headers;
 using System.Text;
 using ActionsProvider.UnifiedResponse;
-using Microsoft.Azure.WebJobs.Host;
 using System.Threading.Tasks;
 using Microsoft.WindowsAzure.Storage.Queue;
 using System.Diagnostics;
@@ -179,6 +175,22 @@ namespace ActionsProvider
             TableOperation InsertOrReplace = TableOperation.InsertOrReplace(new UnifiedResponse.TAssetStatus(theAsset));
             _AssetStatus.Execute(InsertOrReplace);
         }
+        private bool AssetIsRunningAnyProcess(string AssetId)
+        {
+            bool R = false;
+            TableQuery<TJobStatus> query = new TableQuery<TJobStatus>().Where(TableQuery.GenerateFilterCondition("PartitionKey", QueryComparisons.Equal, AssetId));
+            foreach (TJobStatus processInstance in _ProcessStatusTable.ExecuteQuery(query))
+            {
+                if (processInstance.State == "Running")
+                {
+                    //Asset has a 
+                    Trace.TraceInformation($"Asset has process {processInstance.RowKey} {processInstance.State} >> {processInstance.PartitionKey}");
+                    R = true;
+                    break;
+                }
+            }
+            return R;
+        }
         #endregion
 
         #region Process Information
@@ -269,13 +281,35 @@ namespace ActionsProvider
 
                 case ExecutionStatus.New:
                 case ExecutionStatus.Finished:
+                    
                     if (newProcess.AssetStatus.State == ExecutionStatus.New)
+                    {
+                        //New Asset
+                        //Asset has not oter process running
                         newProcess.AssetStatus.State = ExecutionStatus.Running;
-                    EmbebedStatus = ExecutionStatus.Running;
-
-
-                    newProcess.JobStatus.State = ExecutionStatus.Running;
-
+                        EmbebedStatus = ExecutionStatus.Running;
+                        newProcess.JobStatus.State = ExecutionStatus.Running;
+                    }
+                    else
+                    {
+                        //Asset  Ready
+                        //Is another process running for this Asset??
+                        if (AssetIsRunningAnyProcess(AssetId))
+                        {
+                            //Already Running a process
+                            newProcess.JobStatus.Details = "Asset ready but another process is running on asset";
+                            newProcess.JobStatus.State = ExecutionStatus.Error;
+                            newProcess.JobStatus.FinishTime = DateTime.Now;
+                            newProcess.JobStatus.Duration = DateTime.Now.Subtract(newProcess.JobStatus.StartTime);
+                            EmbebedStatus = ExecutionStatus.Aborted;
+                        }
+                        else
+                        {
+                            //Asset has not other process running
+                            EmbebedStatus = ExecutionStatus.Running;
+                            newProcess.JobStatus.State = ExecutionStatus.Running;
+                        }
+                    }
                     break;
                 default:
                     break;

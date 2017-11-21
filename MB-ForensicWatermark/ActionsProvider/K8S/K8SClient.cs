@@ -12,8 +12,9 @@ namespace ActionsProvider.K8S
 {
     class K8SClient:IK8SClient
     {
-        string CREATEJOBAPIPATH = "apis/batch/v1/namespaces/default/jobs";
-        string PODAPIPATH = $"/api/v1/namespaces/default/pods";
+        string CREATEJOBAPIPATH = "/apis/batch/v1/namespaces/default/jobs";
+        string PODAPIPATH = "/api/v1/namespaces/default/pods";
+        string PODLOGPATH = "/api/v1/namespaces/default/{0}/log";
         string K8SURLTOKEN = System.Configuration.ConfigurationManager.AppSettings["K8SURLTOKEN"];
         Uri BASSEADRESSAPI = new Uri(System.Configuration.ConfigurationManager.AppSettings["K8SURL"]);
         private async Task<HttpResponseMessage> CallK8SPostAsync(HttpContent ymal, string K8SURLTOKEN, string path)
@@ -79,7 +80,7 @@ namespace ActionsProvider.K8S
         public async Task<K8SResult> GetK8SJobData(string jobName)
         {
             K8SResult r = new K8SResult();
-            string path = $"/apis/batch/v1/namespaces/default/jobs/{jobName}";
+            string path = $"{CREATEJOBAPIPATH}/{jobName}";
             var rs = await CallK8SXXXAsync(K8SURLTOKEN, path, HttpMethod.Get);
             r.Code = rs.StatusCode;
             r.IsSuccessStatusCode = rs.IsSuccessStatusCode;
@@ -92,6 +93,91 @@ namespace ActionsProvider.K8S
                 r.Content = rs.ReasonPhrase;
             }
             return r;
+        }
+        private async Task<JArray> GetK8SItemList(string path)
+        {
+            JArray jobs = null;
+            var rs = await CallK8SXXXAsync(K8SURLTOKEN, path, HttpMethod.Get);
+            if (rs.IsSuccessStatusCode)
+            {
+                JObject j = Newtonsoft.Json.Linq.JObject.Parse(await rs.Content.ReadAsStringAsync());
+                jobs = (JArray)j["items"];
+            }
+            else
+            {
+                throw new Exception($"Error reading JOB List {rs.ReasonPhrase}");
+            }
+            return jobs;
+        }
+
+       
+        private async Task<bool> SavePodLog(string JobId,string PodName)
+        {
+            string myPodLog = string.Format(PODLOGPATH, PodName);
+            var logR = await CallK8SXXXAsync(K8SURLTOKEN, PodName, HttpMethod.Get);
+            if (logR.IsSuccessStatusCode)
+            {
+                string  log = await logR.Content.ReadAsStringAsync();
+            }
+            else
+            {
+                throw new Exception($"Error reading POD List {logR.ReasonPhrase}");
+            }
+            return logR.IsSuccessStatusCode;
+        }
+        
+        public async Task<K8SResult> DeletePods(string JobId,string jobName, List<string> StatusFilter )
+        {
+            List<string> deleteLog = new List<string>();
+            K8SResult resultStatus = new K8SResult()
+            {
+                Code = HttpStatusCode.OK
+            };
+            try
+            {
+                //Get pod list
+                JArray podList = await GetK8SItemList(PODAPIPATH); 
+                if (podList != null)
+                {
+                    foreach (var currentPod in podList)
+                    {
+                        string jobStatus = (string)currentPod["status"]["phase"];
+                        //Filter by Status, not present
+                        if (!StatusFilter.Contains(jobStatus))
+                        {
+                            string selfLink = (string)currentPod["metadata"]["selfLink"];
+                            JObject labels = (JObject)currentPod["metadata"]["labels"];
+                            string cjobname = (string)labels["job-name"];
+                            string podName=(string)currentPod["metadata"]["name"];
+                            if (cjobname.IndexOf(jobName) >= 0)
+                            {
+                                //1. Save POD LOGS by Job Name
+                                await SavePodLog(JobId, podName);
+                                //2. Delete
+                                var subR = await CallK8SXXXAsync(K8SURLTOKEN, selfLink, HttpMethod.Delete);
+                                if (!subR.IsSuccessStatusCode)
+                                {
+                                    deleteLog.Add($"POD {selfLink} Deleted faild: {subR.StatusCode}:{subR.ReasonPhrase}");
+                                }
+                                else
+                                {
+                                    deleteLog.Add($"POD {selfLink} Deleted!");
+                                }
+                            }
+
+                        }
+                    }
+                    resultStatus.Content = Newtonsoft.Json.JsonConvert.SerializeObject(deleteLog);
+                }
+            }
+            catch (Exception X)
+            {
+                resultStatus.Code = HttpStatusCode.InternalServerError;
+                resultStatus.IsSuccessStatusCode = false;
+                resultStatus.Content = X.Message;
+            }
+           
+            return resultStatus;
         }
         public async Task<K8SResult> DeletePods(string jobname, string status = "All")
         {
@@ -119,6 +205,7 @@ namespace ActionsProvider.K8S
                         string cjobname = (string)labels["job-name"];
                         if (cjobname.IndexOf(jobname)>=0)
                         {
+                            
                             //Delete
                             var subR = await CallK8SXXXAsync(K8SURLTOKEN, selfLink, HttpMethod.Delete);
                             if (!subR.IsSuccessStatusCode)

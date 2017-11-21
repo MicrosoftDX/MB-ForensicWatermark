@@ -19,8 +19,10 @@ namespace ActionsProvider.AMS
             Uri AMSApiUri = new Uri( System.Configuration.ConfigurationManager.AppSettings["AMSApiUri"]);
             string Storageconn = System.Configuration.ConfigurationManager.AppSettings["Storageconn"];
             string AMSStorageConStr= System.Configuration.ConfigurationManager.AppSettings["AMSStorageConStr"];
-            string PUBLISHWATERKEDCOPY= System.Configuration.ConfigurationManager.AppSettings["PUBLISHWATERKEDCOPY"] ?? "true";
-            return new AMSProvider(TenantId,ClientId,ClientSecret,AMSApiUri, Storageconn, AMSStorageConStr, PUBLISHWATERKEDCOPY);
+            string PUBLISHWATERKEDCOPY= System.Configuration.ConfigurationManager.AppSettings["PUBLISHWATERKEDCOPY"] ?? "false";
+            //SAS URL TTL
+            int SASTTL = int.Parse(System.Configuration.ConfigurationManager.AppSettings["SASTTL"] ?? "24");
+            return new AMSProvider(TenantId,ClientId,ClientSecret,AMSApiUri, Storageconn, AMSStorageConStr, PUBLISHWATERKEDCOPY, SASTTL);
         }
     }
 }
