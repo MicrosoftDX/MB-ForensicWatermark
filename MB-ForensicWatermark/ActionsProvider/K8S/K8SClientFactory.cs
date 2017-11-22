@@ -10,7 +10,22 @@ namespace ActionsProvider.K8S
     {
         public static IK8SClient Create()
         {
-            return new K8SClient();
+            string K8SURLTOKEN = System.Configuration.ConfigurationManager.AppSettings["K8SURLTOKEN"];
+            if (string.IsNullOrEmpty(K8SURLTOKEN))
+                throw new Exception($"Configuration Error K8SURLTOKEN is mising");
+            Uri BASSEADRESSAPI = null;
+            try
+            {
+                BASSEADRESSAPI = new Uri(System.Configuration.ConfigurationManager.AppSettings["K8SURL"]);
+            }
+            catch (Exception X)
+            {
+
+                throw new Exception($"Configuration Error BASSEADRESSAPI: {X.Message}");
+            }
+            
+
+            return new K8SClient(BASSEADRESSAPI, K8SURLTOKEN);
         }
     }
 }

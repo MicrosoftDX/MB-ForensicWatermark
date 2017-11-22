@@ -403,5 +403,39 @@ namespace WaterMarkingActions
                 return req.CreateResponse(HttpStatusCode.InternalServerError, X, JsonMediaTypeFormatter.DefaultMediaType);
             }
         }
+        [FunctionName("GetK8SProcessLog")]
+        public static async Task<HttpResponseMessage> GetK8SProcessLog([HttpTrigger(AuthorizationLevel.Function, "get", Route = null)]HttpRequestMessage req, TraceWriter log, ExecutionContext context)
+        {
+            string JobId =  req.GetQueryNameValuePairs().FirstOrDefault(q => string.Compare(q.Key, "JobId", true) == 0).Value;
+            if (string.IsNullOrEmpty(JobId))
+            {
+                return req.CreateResponse(HttpStatusCode.InternalServerError, new { Error = "Parameter JobId is null" }, JsonMediaTypeFormatter.DefaultMediaType);
+            }
+
+            var K8S = K8SClientFactory.Create();
+            try
+            {
+                string jobName = $"allinone-job-{JobId}";
+                var ResultList = await K8S.GetK8SJobLog(jobName);
+               
+                if (ResultList.Count == 0)
+                {
+                    //Not Found
+                    return req.CreateResponse(HttpStatusCode.NotFound, ResultList, JsonMediaTypeFormatter.DefaultMediaType);
+                }
+                else
+                {
+                    //LOG
+                    return req.CreateResponse(HttpStatusCode.OK, ResultList, JsonMediaTypeFormatter.DefaultMediaType);
+                }
+            }
+            catch (Exception X)
+            {
+                log.Error(X.Message);
+                return req.CreateResponse(HttpStatusCode.InternalServerError, X, JsonMediaTypeFormatter.DefaultMediaType);
+            }
+           
+        }
+
     }
 }

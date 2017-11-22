@@ -1,6 +1,7 @@
 ﻿using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
@@ -12,11 +13,17 @@ namespace ActionsProvider.K8S
 {
     class K8SClient:IK8SClient
     {
+      
         string CREATEJOBAPIPATH = "/apis/batch/v1/namespaces/default/jobs";
         string PODAPIPATH = "/api/v1/namespaces/default/pods";
         string PODLOGPATH = "/api/v1/namespaces/default/{0}/log";
-        string K8SURLTOKEN = System.Configuration.ConfigurationManager.AppSettings["K8SURLTOKEN"];
-        Uri BASSEADRESSAPI = new Uri(System.Configuration.ConfigurationManager.AppSettings["K8SURL"]);
+        string K8SURLTOKEN;
+        Uri BASSEADRESSAPI;
+        public K8SClient(Uri apiUri,string token)
+        {
+            K8SURLTOKEN = token;
+            BASSEADRESSAPI = apiUri;
+        }
         private async Task<HttpResponseMessage> CallK8SPostAsync(HttpContent ymal, string K8SURLTOKEN, string path)
         {
             ServicePointManager.ServerCertificateValidationCallback = delegate
@@ -76,23 +83,31 @@ namespace ActionsProvider.K8S
 
             return rm;
         }
-
-        public async Task<K8SResult> GetK8SJobData(string jobName)
+        public async Task<List<KeyValuePair<string, string>>> GetK8SJobLog(string JobNamePrefix)
         {
-            K8SResult r = new K8SResult();
-            string path = $"{CREATEJOBAPIPATH}/{jobName}";
-            var rs = await CallK8SXXXAsync(K8SURLTOKEN, path, HttpMethod.Get);
-            r.Code = rs.StatusCode;
-            r.IsSuccessStatusCode = rs.IsSuccessStatusCode;
-            if (rs.IsSuccessStatusCode)
+            List<KeyValuePair<string,string>> jobLogData = new List<KeyValuePair<string, string>>();
+           
+            var podList = await GetK8SItemList(PODAPIPATH);
+            foreach (var pod in podList)
             {
-                r.Content = await rs.Content.ReadAsStringAsync();
+                JToken metadata = pod.Value<JToken>("metadata");
+                string podName = metadata.Value<string>("name");
+                if (podName.IndexOf(JobNamePrefix) == 0)
+                {
+                    //my pod
+                    string selfLink = metadata.Value<string>("selfLink");
+                    var rs = await CallK8SXXXAsync(K8SURLTOKEN, $"{selfLink}/log", HttpMethod.Get);
+                    if ((rs.IsSuccessStatusCode))
+                    {
+                        jobLogData.Add(new KeyValuePair<string, string>(podName, await rs.Content.ReadAsStringAsync()));
+                    }
+                    else
+                    {
+                        Trace.TraceError($"GetK8SJobLog error {rs.StatusCode} {rs.ReasonPhrase}");
+                    }
+                }
             }
-            else
-            {
-                r.Content = rs.ReasonPhrase;
-            }
-            return r;
+            return jobLogData;
         }
         private async Task<JArray> GetK8SItemList(string path)
         {
@@ -109,8 +124,6 @@ namespace ActionsProvider.K8S
             }
             return jobs;
         }
-
-       
         private async Task<bool> SavePodLog(string JobId,string PodName)
         {
             string myPodLog = string.Format(PODLOGPATH, PodName);
@@ -125,7 +138,6 @@ namespace ActionsProvider.K8S
             }
             return logR.IsSuccessStatusCode;
         }
-        
         public async Task<K8SResult> DeletePods(string JobId,string jobName, List<string> StatusFilter )
         {
             List<string> deleteLog = new List<string>();
