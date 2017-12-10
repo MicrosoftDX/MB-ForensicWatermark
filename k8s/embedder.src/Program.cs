@@ -48,7 +48,7 @@ namespace embedder
 
         #endregion
 
-        public static int Main(string[] args) { return MainAsync(args).Result; }
+        public static int Main(string[] args) { return MainAsync(args).GetAwaiter().GetResult(); }
 
         static async Task<int> MainAsync(string[] args)
         {
