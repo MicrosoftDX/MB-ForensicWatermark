@@ -117,7 +117,7 @@ namespace embedder
             {
                 Policy
                     .Handle<Exception>()
-                    .WaitAndRetryAsync(retryCount: 5, sleepDurationProvider: attempt => TimeSpan.FromSeconds(1))
+                    .WaitAndRetry(retryCount: 5, sleepDurationProvider: attempt => TimeSpan.FromSeconds(1))
                     .Execute(() =>
                     {
                         if (pd.LocalFile.Exists)
@@ -135,7 +135,7 @@ namespace embedder
             {
                 Policy
                     .Handle<Exception>()
-                    .WaitAndRetryAsync(retryCount: 5, sleepDurationProvider: attempt => TimeSpan.FromSeconds(1))
+                    .WaitAndRetry(retryCount: 5, sleepDurationProvider: attempt => TimeSpan.FromSeconds(1))
                     .Execute(() =>
                     {
                         if (ed.WatermarkedFile.Exists)
