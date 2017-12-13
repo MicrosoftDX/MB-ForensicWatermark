@@ -48,7 +48,7 @@ namespace embedder
 
         #endregion
 
-        public static int Main(string[] args) { return MainAsync(args).Result; }
+        public static int Main(string[] args) => MainAsync(args).GetAwaiter().GetResult();
 
         static async Task<int> MainAsync(string[] args)
         {
@@ -117,7 +117,9 @@ namespace embedder
             {
                 Policy
                     .Handle<Exception>()
-                    .WaitAndRetryAsync(retryCount: 5, sleepDurationProvider: attempt => TimeSpan.FromSeconds(1))
+                    .WaitAndRetry(
+                        retryCount: 5, 
+                        sleepDurationProvider: attempt => TimeSpan.FromSeconds(1))
                     .Execute(() =>
                     {
                         if (pd.LocalFile.Exists)
@@ -135,7 +137,9 @@ namespace embedder
             {
                 Policy
                     .Handle<Exception>()
-                    .WaitAndRetryAsync(retryCount: 5, sleepDurationProvider: attempt => TimeSpan.FromSeconds(1))
+                    .WaitAndRetry(
+                        retryCount: 5, 
+                        sleepDurationProvider: attempt => TimeSpan.FromSeconds(1))
                     .Execute(() =>
                     {
                         if (ed.WatermarkedFile.Exists)
