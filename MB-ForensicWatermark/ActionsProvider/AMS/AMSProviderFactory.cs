@@ -18,11 +18,12 @@ namespace ActionsProvider.AMS
             string ClientSecret = System.Configuration.ConfigurationManager.AppSettings["ClientSecret"];
             Uri AMSApiUri = new Uri( System.Configuration.ConfigurationManager.AppSettings["AMSApiUri"]);
             string WatermarkedStorageConn = System.Configuration.ConfigurationManager.AppSettings["WatermarkedStorageConn"];
+            string WatermarkedStorageName = System.Configuration.ConfigurationManager.AppSettings["WatermarkedStorageName"];
             string AMSStorageConStr= System.Configuration.ConfigurationManager.AppSettings["AMSStorageConStr"];
             string PUBLISHWATERKEDCOPY= System.Configuration.ConfigurationManager.AppSettings["PUBLISHWATERKEDCOPY"] ?? "false";
             //SAS URL TTL
             int SASTTL = int.Parse(System.Configuration.ConfigurationManager.AppSettings["SASTTL"] ?? "24");
-            return new AMSProvider(TenantId,ClientId,ClientSecret,AMSApiUri, WatermarkedStorageConn, AMSStorageConStr, PUBLISHWATERKEDCOPY, SASTTL);
+            return new AMSProvider(TenantId,ClientId,ClientSecret,AMSApiUri, WatermarkedStorageConn, WatermarkedStorageName, AMSStorageConStr, PUBLISHWATERKEDCOPY, SASTTL);
         }
     }
 }

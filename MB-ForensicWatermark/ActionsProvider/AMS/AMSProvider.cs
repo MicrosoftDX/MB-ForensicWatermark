@@ -20,6 +20,7 @@ namespace ActionsProvider.AMS
     class AMSProvider : IAMSProvider
     {
         string _WaterMarkStorageConStr;
+        string _WatermarkedStorageName;
         CloudMediaContext _mediaContext;
         CloudStorageAccount _WaterMArkStorageAccount;
         CloudBlobClient _WaterMArkStorageBlobClient;
@@ -42,7 +43,7 @@ namespace ActionsProvider.AMS
             string sasBlobToken = blob.GetSharedAccessSignature(sasConstraints);
             return blob.Uri + sasBlobToken;
         }
-        public AMSProvider(string TenantId, string ClientId, string ClientSecret, Uri AMSApiUri, string WaterMarkStorageConStr, string AMSStorageConStr,string PUBLISHWATERKEDCOPY, int sasTtl)
+        public AMSProvider(string TenantId, string ClientId, string ClientSecret, Uri AMSApiUri, string WaterMarkStorageConStr, string WatermarkedStorageName, string AMSStorageConStr,string PUBLISHWATERKEDCOPY, int sasTtl)
         {
             AzureAdClientSymmetricKey clientSymmetricKey = new AzureAdClientSymmetricKey(ClientId, ClientSecret);
             var tokenCredentials = new AzureAdTokenCredentials(TenantId, clientSymmetricKey, AzureEnvironments.AzureCloudEnvironment);
@@ -53,6 +54,7 @@ namespace ActionsProvider.AMS
             _WaterMArkStorageAccount = CloudStorageAccount.Parse(WaterMarkStorageConStr);
             _WaterMArkStorageBlobClient = _WaterMArkStorageAccount.CreateCloudBlobClient();
             _WaterMarkStorageConStr = WaterMarkStorageConStr;
+            _WatermarkedStorageName = WatermarkedStorageName;
             //AMS Stoarge
             _AMSStorageAccount = CloudStorageAccount.Parse(AMSStorageConStr);
             _AMSStorageBlobClient = _AMSStorageAccount.CreateCloudBlobClient();
@@ -302,7 +304,7 @@ namespace ActionsProvider.AMS
                 IAsset SourceMediaAsset = GetMediaAssetFromAssetId(SourceAssetId);
                 string NewAssetName = $"{SourceMediaAsset.Name}-{ProcessId}-{DateTime.Now.Ticks.ToString()}";
                 CancellationToken myToken = new CancellationToken();
-                IAsset newWatermarkedAsset = await _mediaContext.Assets.CreateAsync(NewAssetName, AssetCreationOptions.None, myToken);
+                IAsset newWatermarkedAsset = await _mediaContext.Assets.CreateAsync(NewAssetName,_WatermarkedStorageName , AssetCreationOptions.None, myToken);
                 newWatermarkedAsset.AlternateId = $"{SourceAssetId}-{WMEmbedCode}";
                 await newWatermarkedAsset.UpdateAsync();
                 result.Status = result.Status = "Finished"; ;

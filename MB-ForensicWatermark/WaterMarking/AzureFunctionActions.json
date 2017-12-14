@@ -38,11 +38,17 @@
         "description": "Azure Media Services Storage connection string"
       }
     },
-    
+
     "WatermarkedStorageConn": {
       "type": "string",
       "metadata": {
         "description": "Watermarked Azure Media Services Storage connection string"
+      }
+    },
+    "WatermarkedStorageName": {
+      "type": "string",
+      "metadata": {
+        "description": "Watermarked Azure Media Services Storage connection name"
       }
     },
     "K8SURL": {
@@ -181,6 +187,10 @@
             {
               "name": "WatermarkedStorageConn",
               "value": "[parameters('WatermarkedStorageConn')]"
+            },
+            {
+              "name": "WatermarkedStorageName",
+              "value": "[parameters('WatermarkedStorageName')]"
             },
             {
               "name": "K8SURL",
