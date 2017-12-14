@@ -9,7 +9,7 @@ namespace ActionsProvider
     {
        public static IActionsProvider GetActionProvider()
         {
-            string Storageconn = System.Configuration.ConfigurationManager.AppSettings["Storageconn"];
+            string Storageconn = System.Configuration.ConfigurationManager.AppSettings["WatermarkedStorageConn"];
             return new ActionProvider(Storageconn);
         }
     }
