@@ -131,7 +131,7 @@ namespace ActionsProvider.AMS
                     code.MP4WatermarkedURL.Add(new MP4WatermarkedURL()
                     {
                         FileName = video.FileName,
-                        WaterMarkedMp4 = GetBlobSasUri(_AMSStorageBlobClient,"watermarked", $"{theAsset.Id}/{code.EmbebedCode}/{wmp4Name}", allAccess, _SASTTL)
+                        WaterMarkedMp4 = GetBlobSasUri(_WaterMArkStorageBlobClient,"watermarked", $"{theAsset.Id}/{code.EmbebedCode}/{wmp4Name}", allAccess, _SASTTL)
                     });
                 }
             }
@@ -220,7 +220,7 @@ namespace ActionsProvider.AMS
         }
         public void DeleteWatermakedBlobRenders(string AssetId)
         {
-            CloudBlobContainer container = _AMSStorageBlobClient.GetContainerReference("watermarked");
+            CloudBlobContainer container = _WaterMArkStorageBlobClient.GetContainerReference("watermarked");
 
             foreach (IListBlobItem item in container.ListBlobs(AssetId, true))
             {
