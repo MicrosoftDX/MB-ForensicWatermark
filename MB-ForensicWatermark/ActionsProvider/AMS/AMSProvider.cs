@@ -391,7 +391,7 @@ namespace ActionsProvider.AMS
 
             string containerName = ConvertMediaAssetIdToStorageContainerName(Asset.Id);
 
-            CloudBlobContainer DestinationBlobContainer = _AMSStorageBlobClient.ListContainers().Where(n => n.Name == containerName).FirstOrDefault();
+            CloudBlobContainer DestinationBlobContainer = _WaterMArkStorageBlobClient.ListContainers().Where(n => n.Name == containerName).FirstOrDefault();
 
             CloudBlockBlob sourceBlob = new CloudBlockBlob(new Uri(MMRKURL));
 
