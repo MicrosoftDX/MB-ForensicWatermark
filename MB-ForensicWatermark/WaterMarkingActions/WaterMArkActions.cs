@@ -30,6 +30,10 @@ namespace WaterMarkingActions
             //Save Status
             IActionsProvider myActions = ActionProviderFactory.GetActionProvider();
             var status = myActions.GetAssetStatus(AssetId);
+            if(status == null)
+            {
+                return req.CreateResponse(HttpStatusCode.NotFound,$"Asset with id '{AssetId}' was not watermarked yet.", JsonMediaTypeFormatter.DefaultMediaType);
+            }
             return req.CreateResponse(HttpStatusCode.OK, status, JsonMediaTypeFormatter.DefaultMediaType);
         }
         [FunctionName("StartNewJob")]
