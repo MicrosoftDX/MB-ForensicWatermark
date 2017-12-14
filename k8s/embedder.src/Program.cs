@@ -115,7 +115,7 @@ namespace embedder
 
             foreach (var pd in preprocessorData)
             {
-                Policy
+               Policy
                     .Handle<Exception>()
                     .WaitAndRetry(retryCount: 5, sleepDurationProvider: attempt => TimeSpan.FromSeconds(1))
                     .Execute(() =>

@@ -20,6 +20,9 @@
     "AMSStorageConStr": {
       "value": ""
     },
+    "WatermarkedStorageConn": {
+      "value": ""
+    },
     "K8SURL": {
       "value": ""
     },

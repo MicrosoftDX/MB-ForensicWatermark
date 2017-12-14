@@ -20,7 +20,7 @@ using System.Threading.Tasks;
 
 namespace WaterMarkingActions
 {
-    public static class WaterMArkActions
+    public static class WaterMarkActions
     {
         [FunctionName("StartNewJob")]
         public static async Task<HttpResponseMessage> StartNewJob([HttpTrigger(AuthorizationLevel.Function, "post", Route = null)]HttpRequestMessage req, TraceWriter log)
@@ -144,8 +144,8 @@ namespace WaterMarkingActions
 
             return req.CreateResponse(HttpStatusCode.OK, manifest, JsonMediaTypeFormatter.DefaultMediaType);
         }
-        [FunctionName("CreateWaterMArkedAssets")]
-        public static async Task<HttpResponseMessage> CreateWaterMArkedAssets([HttpTrigger(AuthorizationLevel.Function, "post", Route = null)]HttpRequestMessage req, TraceWriter log)
+        [FunctionName("CreateWaterMarkedAssets")]
+        public static async Task<HttpResponseMessage> CreateWaterMarkedAssets([HttpTrigger(AuthorizationLevel.Function, "post", Route = null)]HttpRequestMessage req, TraceWriter log)
         {
             IActionsProvider myActions = ActionProviderFactory.GetActionProvider();
 
