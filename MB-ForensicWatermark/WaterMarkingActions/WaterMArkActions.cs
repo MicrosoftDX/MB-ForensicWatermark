@@ -104,7 +104,7 @@ namespace WaterMarkingActions
             //3. Update Manifest/ all process
             myActions.UpdateUnifiedProcessStatus(manifest);
             //4. Log and replay
-            log.Info($"Updated Actions AssetId {manifest.AssetStatus.AssetId} staus {manifest.AssetStatus.ToString()}");
+            log.Info($"Updated Actions AssetId {manifest.AssetStatus.AssetId} status {manifest.AssetStatus.ToString()}");
             return req.CreateResponse(HttpStatusCode.OK, manifest, JsonMediaTypeFormatter.DefaultMediaType);
         }
 
@@ -192,7 +192,7 @@ namespace WaterMarkingActions
                         {
                             //Error
                             watermarkedInfo.State = ExecutionStatus.Error;
-                            watermarkedInfo.Details = $"Error adding {render.RenderName} deatils: {r.StatusMessage}";
+                            watermarkedInfo.Details = $"Error adding {render.RenderName} details: {r.StatusMessage}";
                             //Delete Asset
                             help.DeleteAsset(watermarkedInfo.AssetID);
                             watermarkedInfo.AssetID = "";
