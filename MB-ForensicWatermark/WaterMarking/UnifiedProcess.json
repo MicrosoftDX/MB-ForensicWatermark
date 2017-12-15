@@ -13,7 +13,7 @@
     },
     "logicAppLocation": {
       "type": "string",
-      "defaultValue": "[resourceGroup().location]",
+      "defaultValue": "westeurope",
       "allowedValues": [
         "eastasia",
         "southeastasia",
@@ -68,7 +68,7 @@
     "UpdateWaterMarkCodeURL": "[concat('https://',parameters('yourapp'),'.azurewebsites.net/api/','UpdateWaterMarkCode','?code=',parameters('HostKeys'))]",
     "Eval_Renders_URL": "[concat('https://',parameters('yourapp'),'.azurewebsites.net/api/','EvalEmbeddedCodes','?code=',parameters('HostKeys'))]",
     "Create_Asset_CopiesURL": "[concat('https://',parameters('yourapp'),'.azurewebsites.net/api/','CreateWaterMArkedAssets','?code=',parameters('HostKeys'))]",
-    "Evaluate_Job_StausURL": "[concat('https://',parameters('yourapp'),'.azurewebsites.net/api/','EvalJobProgress','?code=',parameters('HostKeys'))]",
+    "Evaluate_Job_StatusURL": "[concat('https://',parameters('yourapp'),'.azurewebsites.net/api/','EvalJobProgress','?code=',parameters('HostKeys'))]",
     "SubmitK8S_URL": "[concat('https://',parameters('yourapp'),'.azurewebsites.net/api/','SubmiteWaterMarkJob','?code=',parameters('HostKeys'))]",
     "Error_Asset_MMRK_URI": "[concat('https://',parameters('yourapp'),'.azurewebsites.net/api/','UpdateJob','?code=',parameters('HostKeys'))]",
     "Delete_Watermarked_Renders_URI": "[concat('https://',parameters('yourapp'),'.azurewebsites.net/api/','DeleteWatermarkedRenders','?code=',parameters('HostKeys'))]",
@@ -505,7 +505,7 @@
                               "type": "Http",
                               "inputs": {
                                 "method": "POST",
-                                "uri": "[variables('Evaluate_Job_StausURL')]",
+                                "uri": "[variables('Evaluate_Job_StatusURL')]",
                                 "headers": {
                                   "Content-Type": "application/json"
                                 },
@@ -696,11 +696,11 @@
                                   ]
                                 }
                               },
-                              "Evaluate_Job_Staus": {
+                              "Evaluate_Job_Status": {
                                 "type": "Http",
                                 "inputs": {
                                   "method": "POST",
-                                  "uri": "[variables('Evaluate_Job_StausURL')]",
+                                  "uri": "[variables('Evaluate_Job_StatusURL')]",
                                   "headers": {
                                     "Content-Type": "application/json"
                                   },
@@ -719,10 +719,10 @@
                                 "type": "SetVariable",
                                 "inputs": {
                                   "name": "CurrentManifest",
-                                  "value": "@{body('Evaluate_Job_Staus')}"
+                                  "value": "@{body('Evaluate_Job_Status')}"
                                 },
                                 "runAfter": {
-                                  "Evaluate_Job_Staus": [
+                                  "Evaluate_Job_Status": [
                                     "Succeeded"
                                   ]
                                 }
@@ -731,7 +731,7 @@
                                 "type": "SetVariable",
                                 "inputs": {
                                   "name": "switchCheck",
-                                  "value": "@equals(body('Evaluate_Job_Staus')?['JobStatus']?['State'], 'Running')"
+                                  "value": "@equals(body('Evaluate_Job_Status')?['JobStatus']?['State'], 'Running')"
                                 },
                                 "runAfter": {
                                   "Update_Manifest": [
@@ -739,7 +739,7 @@
                                   ]
                                 }
                               },
-                              "Delay_for_Check_Job_Staus": {
+                              "Delay_for_Check_Job_Status": {
                                 "type": "Wait",
                                 "inputs": {
                                   "interval": {
@@ -755,12 +755,12 @@
                               }
                             },
                             "runAfter": {
-                              "Set_Switch_Waait_For_Renders": [
+                              "Set_Switch_Wait_For_Renders": [
                                 "Succeeded"
                               ]
                             }
                           },
-                          "Set_Switch_Waait_For_Renders": {
+                          "Set_Switch_Wait_For_Renders": {
                             "type": "SetVariable",
                             "inputs": {
                               "name": "switchCheck",
@@ -835,7 +835,7 @@
                             "Content-Type": "application/json"
                           },
                           "body": {
-                            "Manifest": "@body('StatProcessCAll')",
+                            "Manifest": "@body('StatProcessCall')",
                             "AssetStatus": "Error",
                             "JobState": "Error",
                             "JobStateDetails": "Error Submite K8S JOB",
@@ -863,7 +863,7 @@
                           "Content-Type": "application/json"
                         },
                         "body": {
-                          "Manifest": "@body('StatProcessCAll')",
+                          "Manifest": "@body('StatProcessCall')",
                           "AssetStatus": "Error",
                           "JobState": "Error",
                           "JobStateDetails": "Error on Get Sumit Job Data",
@@ -892,7 +892,7 @@
                       "Content-Type": "application/json"
                     },
                     "body": {
-                      "Manifest": "@body('StatProcessCAll')",
+                      "Manifest": "@body('StatProcessCall')",
                       "AssetStatus": "Error",
                       "JobState": "Error",
                       "JobStateDetails": "K8S submit error :@{body('SubmitK8S')}",
@@ -940,12 +940,12 @@
                   {
                     "name": "CurrentManifest",
                     "type": "String",
-                    "value": "@{body('StatProcessCAll')}"
+                    "value": "@{body('StatProcessCall')}"
                   }
                 ]
               },
               "runAfter": {
-                "StatProcessCAll": [
+                "StatProcessCall": [
                   "Succeeded"
                 ]
               }
