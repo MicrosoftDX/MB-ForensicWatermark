@@ -26,9 +26,9 @@ namespace ActionsProvider.Entities
         public string WaterMarkedMp4 { get; set; }
     }
 
-    public class EnbebedCode
+    public class EmbeddedCode
     {
-        public string EmbeddedCode { get; set; }
+        public string Embeddedcode { get; set; }
         public List<MP4WatermarkedURL> MP4WatermarkedURL { get; set; }
     }
 
@@ -39,7 +39,7 @@ namespace ActionsProvider.Entities
         public string PreprocessorNotificationQueue { get; set; }
         public string EmbedderNotificationQueue { get; set; }
         public List<VideoInformation> VideoInformation { get; set; }
-        public List<EnbebedCode> EnbebedCodes { get; set; }
+        public List<EmbeddedCode> EnbebedCodes { get; set; }
     }
 
    

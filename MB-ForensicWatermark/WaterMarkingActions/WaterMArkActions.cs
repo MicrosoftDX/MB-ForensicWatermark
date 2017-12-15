@@ -25,7 +25,8 @@ namespace WaterMarkingActions
         [FunctionName("CheckAssetStatus")]
         public static async Task<HttpResponseMessage> CheckAssetStatus([HttpTrigger(AuthorizationLevel.Function, "post", Route = null)]HttpRequestMessage req, TraceWriter log)
         {
-            dynamic BodyData = await req.Content.ReadAsAsync<object>();
+            string content = await req.Content.ReadAsStringAsync();
+            var BodyData = content.GetBodyData<RequestData.CheckAssetStatus>();
             string AssetId = BodyData.AssetId;
             //Save Status
             IActionsProvider myActions = ActionProviderFactory.GetActionProvider();
@@ -39,23 +40,25 @@ namespace WaterMarkingActions
         [FunctionName("StartNewJob")]
         public static async Task<HttpResponseMessage> StartNewJob([HttpTrigger(AuthorizationLevel.Function, "post", Route = null)]HttpRequestMessage req, TraceWriter log)
         {
-            dynamic BodyData = await req.Content.ReadAsAsync<object>();
-            string AssetID = BodyData.AssetID;
+            string content = await req.Content.ReadAsStringAsync();
+            var BodyData = content.GetBodyData<RequestData.StartNewJob>();
+            string AssetId = BodyData.AssetId;
             string JobId = BodyData.JobId;
-            string[] EmbeddedCodes = BodyData.EmbeddedCodes.ToObject<string[]>();
+            string[] EmbeddedCodes = BodyData.EmbeddedCodes;
             //Save Status
             IActionsProvider myActions = ActionProviderFactory.GetActionProvider();
-            var status = myActions.StartNewProcess(AssetID, JobId, EmbeddedCodes);
+            var status = myActions.StartNewProcess(AssetId, JobId, EmbeddedCodes);
             return req.CreateResponse(HttpStatusCode.OK, status, JsonMediaTypeFormatter.DefaultMediaType);
         }
 
         [FunctionName("GetPreprocessorJobData")]
         public static async Task<HttpResponseMessage> GetJobManifest([HttpTrigger(AuthorizationLevel.Function, "post", Route = null)]HttpRequestMessage req, TraceWriter log)
         {
-            dynamic BodyData = await req.Content.ReadAsAsync<object>();
+            string content = await req.Content.ReadAsStringAsync();
+            var BodyData = content.GetBodyData<RequestData.GetPreprocessorJobData>();
             string AssetId = BodyData.AssetId;
             string JobId = BodyData.JobId;
-            List<string> codes = BodyData.Codes.ToObject<List<string>>();
+            List<string> codes = BodyData.Codes;
             IAMSProvider myAMS = AMSProviderFactory.CreateAMSProvider();
             try
             {
@@ -72,10 +75,14 @@ namespace WaterMarkingActions
         [FunctionName("UpdateMMRKStatus")]
         public static async Task<HttpResponseMessage> UpdateMMRKStatus([HttpTrigger(AuthorizationLevel.Function, "post", Route = null)]HttpRequestMessage req, TraceWriter log)
         {
-            dynamic BodyData = await req.Content.ReadAsAsync<object>();
-            //Create JobStatus from body data
-            MMRKStatus MMRK = BodyData.ToObject<MMRKStatus>();
+            string content = await req.Content.ReadAsStringAsync();
 
+            //Create JobStatus from body data
+            MMRKStatus MMRK = content.GetBodyData<MMRKStatus>();
+            if(MMRK == null)
+            {
+                return req.CreateResponse(HttpStatusCode.BadRequest, MMRK, JsonMediaTypeFormatter.DefaultMediaType);
+            }
             //Save Status
             IActionsProvider myActions = ActionProviderFactory.GetActionProvider();
             if (MMRK.FileURL == "{NO UPDATE}")
@@ -92,8 +99,12 @@ namespace WaterMarkingActions
         [FunctionName("EvalAssetStatus")]
         public static async Task<HttpResponseMessage> EvalAssetStatus([HttpTrigger(AuthorizationLevel.Function, "post", Route = null)]HttpRequestMessage req, TraceWriter log)
         {
-            dynamic BodyData = await req.Content.ReadAsAsync<object>();
-            UnifiedProcessStatus manifest = BodyData.ToObject<UnifiedProcessStatus>();
+            string content = await req.Content.ReadAsStringAsync();
+            UnifiedProcessStatus manifest = content.GetBodyData<UnifiedProcessStatus>();
+           if(manifest == null)
+            {
+                return req.CreateResponse(HttpStatusCode.BadRequest, manifest, JsonMediaTypeFormatter.DefaultMediaType);
+            }
 
             IActionsProvider myActions = ActionProviderFactory.GetActionProvider();
             //1. Update EvalPreprocessorNotifications
@@ -112,8 +123,13 @@ namespace WaterMarkingActions
         public static async Task<HttpResponseMessage> UpdateWaterMarkCode([HttpTrigger(AuthorizationLevel.Function, "post", Route = null)]HttpRequestMessage req, TraceWriter log)
         {
             IActionsProvider myActions = ActionProviderFactory.GetActionProvider();
-            dynamic BodyData = await req.Content.ReadAsAsync<object>();
-            EnbebedCode myCode = BodyData.EnbebedCode.ToObject<EnbebedCode>();
+            string content = await req.Content.ReadAsStringAsync();
+            var BodyData = content.GetBodyData<RequestData.UpdateWaterMarkCode>();
+            if (BodyData == null )
+            {
+                return req.CreateResponse(HttpStatusCode.BadRequest, BodyData, JsonMediaTypeFormatter.DefaultMediaType);
+            }
+            EmbeddedCode myCode = BodyData.EmbeddedCode;
             string ParentAssetId = BodyData.ParentAssetId;
 
             foreach (var info in myCode.MP4WatermarkedURL)
@@ -121,7 +137,7 @@ namespace WaterMarkingActions
                 WaterMarkedRender data = new WaterMarkedRender()
                 {
                     Details = "Submited",
-                    EmbeddedCodeValue = myCode.EmbeddedCode,
+                    EmbeddedCodeValue = myCode.Embeddedcode,
                     MP4URL = info.WaterMarkedMp4,
                     RenderName = info.FileName,
                     ParentAssetId = ParentAssetId,
@@ -137,8 +153,12 @@ namespace WaterMarkingActions
         public static async Task<HttpResponseMessage> EvalEnbebedCodes([HttpTrigger(AuthorizationLevel.Function, "post", Route = null)]HttpRequestMessage req, TraceWriter log)
         {
             IActionsProvider myActions = ActionProviderFactory.GetActionProvider();
-            dynamic BodyData = await req.Content.ReadAsAsync<object>();
-            UnifiedProcessStatus manifest = BodyData.ToObject<UnifiedProcessStatus>();
+            string content = await req.Content.ReadAsStringAsync();
+            UnifiedProcessStatus manifest = content.GetBodyData<UnifiedProcessStatus>();
+            if (manifest == null)
+            {
+                return req.CreateResponse(HttpStatusCode.BadRequest, manifest, JsonMediaTypeFormatter.DefaultMediaType);
+            }
             string ParentAssetId = manifest.AssetStatus.AssetId;
             //1. Process Embbeded Notifications
             int nNotification = await myActions.EvalPEmbeddedNotifications();
@@ -163,8 +183,12 @@ namespace WaterMarkingActions
         {
             IActionsProvider myActions = ActionProviderFactory.GetActionProvider();
 
-            dynamic BodyData = await req.Content.ReadAsAsync<object>();
-            UnifiedProcessStatus manifest = BodyData.ToObject<UnifiedProcessStatus>();
+            string content = await req.Content.ReadAsStringAsync();
+            UnifiedProcessStatus manifest = content.GetBodyData<UnifiedProcessStatus>();
+            if (manifest == null)
+            {
+                return req.CreateResponse(HttpStatusCode.BadRequest, manifest, JsonMediaTypeFormatter.DefaultMediaType);
+            }
             string ParentAssetId = manifest.AssetStatus.AssetId;
 
             List<WaterMarkedAssetInfo> UpdatedInfo = new List<WaterMarkedAssetInfo>();
@@ -222,8 +246,13 @@ namespace WaterMarkingActions
         public static async Task<HttpResponseMessage> EvalJobProgress([HttpTrigger(AuthorizationLevel.Function, "post", Route = null)]HttpRequestMessage req, TraceWriter log)
         {
 
-            dynamic BodyData = await req.Content.ReadAsAsync<object>();
-            UnifiedProcessStatus myProcessStatus = BodyData.ToObject<UnifiedProcessStatus>();
+            
+            string content = await req.Content.ReadAsStringAsync();
+            UnifiedProcessStatus myProcessStatus = content.GetBodyData<UnifiedProcessStatus>();
+            if (myProcessStatus == null)
+            {
+                return req.CreateResponse(HttpStatusCode.BadRequest, myProcessStatus, JsonMediaTypeFormatter.DefaultMediaType);
+            }
             IActionsProvider myActions = ActionProviderFactory.GetActionProvider();
             //Check AssetStatus
 
@@ -280,7 +309,12 @@ namespace WaterMarkingActions
         [FunctionName("GetUnifiedProcessStatus")]
         public static async Task<HttpResponseMessage> GetUnifiedProcessStatus([HttpTrigger(AuthorizationLevel.Function, "post", Route = null)]HttpRequestMessage req, TraceWriter log)
         {
-            dynamic BodyData = await req.Content.ReadAsAsync<object>();
+            string content = await req.Content.ReadAsStringAsync();
+            var BodyData = content.GetBodyData<RequestData.GetUnifiedProcessStatus>();
+            if (BodyData == null)
+            {
+                return req.CreateResponse(HttpStatusCode.BadRequest, BodyData, JsonMediaTypeFormatter.DefaultMediaType);
+            }
             IActionsProvider myActions = ActionProviderFactory.GetActionProvider();
             string AssetId = BodyData.AssetId;
             string JobId = BodyData.JobId;
@@ -300,8 +334,12 @@ namespace WaterMarkingActions
         public static async Task<HttpResponseMessage> SubmiteWaterMarkJob([HttpTrigger(AuthorizationLevel.Function, "post", Route = null)]HttpRequestMessage req, TraceWriter log, ExecutionContext context)
         {
             IActionsProvider myActions = ActionProviderFactory.GetActionProvider();
-            dynamic BodyData = await req.Content.ReadAsAsync<object>();
-            ManifestInfo manifest = BodyData.ToObject<ManifestInfo>();
+            string content = await req.Content.ReadAsStringAsync();
+            ManifestInfo manifest = content.GetBodyData<ManifestInfo>();
+            if (manifest == null)
+            {
+                return req.CreateResponse(HttpStatusCode.BadRequest, manifest, JsonMediaTypeFormatter.DefaultMediaType);
+            }
             int K8SJobAggregation = int.Parse(System.Configuration.ConfigurationManager.AppSettings["K8SJobAggregation"]);
             int K8SJobAggregationOnlyEmb = int.Parse(System.Configuration.ConfigurationManager.AppSettings["K8SJobAggregationOnlyEmb"] ?? "1");
             try
@@ -333,17 +371,22 @@ namespace WaterMarkingActions
         [FunctionName("UpdateJob")]
         public static async Task<HttpResponseMessage> UpdateJob([HttpTrigger(AuthorizationLevel.Function, "post", Route = null)]HttpRequestMessage req, TraceWriter log, ExecutionContext context)
         {
-            dynamic BodyData = await req.Content.ReadAsAsync<object>();
+            
             IActionsProvider myActions = ActionProviderFactory.GetActionProvider();
 
-            UnifiedProcessStatus Manifest = BodyData.Manifest.ToObject<UnifiedProcessStatus>();
+            string content = await req.Content.ReadAsStringAsync();
+            var BodyData = content.GetBodyData<RequestData.UpdateJob>();
+            if (BodyData == null)
+            {
+                return req.CreateResponse(HttpStatusCode.BadRequest, BodyData, JsonMediaTypeFormatter.DefaultMediaType);
+            }
 
-            ExecutionStatus AssetStatus = BodyData.AssetStatus.ToObject<ExecutionStatus>();
-
-            ExecutionStatus JobState = BodyData.JobState.ToObject<ExecutionStatus>();
+            ExecutionStatus AssetStatus = BodyData.AssetStatus;
+            UnifiedProcessStatus Manifest = BodyData.Manifest;
+            ExecutionStatus JobState = BodyData.JobState;
             string JobStateDetails = BodyData.JobStateDetails;
 
-            ExecutionStatus WaterMarkCopiesStatus = BodyData.WaterMarkCopiesStatus.ToObject<ExecutionStatus>();
+            ExecutionStatus WaterMarkCopiesStatus = BodyData.WaterMarkCopiesStatus;
             string WaterMarkCopiesStatusDetails = BodyData.WaterMarkCopiesStatusDetails;
             switch (Manifest.AssetStatus.State)
             {
@@ -369,7 +412,12 @@ namespace WaterMarkingActions
         [FunctionName("DeleteWatermarkedRenders")]
         public static async Task<HttpResponseMessage> DeleteWatermarkedRenders([HttpTrigger(AuthorizationLevel.Function, "post", Route = null)]HttpRequestMessage req, TraceWriter log, ExecutionContext context)
         {
-            dynamic BodyData = await req.Content.ReadAsAsync<object>();
+            string content = await req.Content.ReadAsStringAsync();
+            var BodyData = content.GetBodyData<RequestData.AssetRequest>();
+            if (BodyData == null)
+            {
+                return req.CreateResponse(HttpStatusCode.BadRequest, BodyData, JsonMediaTypeFormatter.DefaultMediaType);
+            }
             IAMSProvider myAMShelp = AMSProviderFactory.CreateAMSProvider();
 
             string AssetId = BodyData.AssetId;
@@ -400,11 +448,15 @@ namespace WaterMarkingActions
         [FunctionName("DeleteSucceededPods")]
         public static async Task<HttpResponseMessage> DeleteSucceededPods([HttpTrigger(AuthorizationLevel.Function, "post", Route = null)]HttpRequestMessage req, TraceWriter log, ExecutionContext context)
         {
-            dynamic BodyData = await req.Content.ReadAsAsync<object>();
-            string JobId = BodyData.JobId;
+            string content = await req.Content.ReadAsStringAsync();
+            var BodyData = content.GetBodyData<RequestData.JobRequest>();
+            if (BodyData == null)
+            {
+                return req.CreateResponse(HttpStatusCode.BadRequest, BodyData, JsonMediaTypeFormatter.DefaultMediaType);
+            }
 
             IK8SClient k = K8SClientFactory.Create();
-            string prefixName = $"allinone-job-{JobId}";
+            string prefixName = $"allinone-job-{BodyData.JobId}";
             try
             {
                 var r = await k.DeletePods(prefixName, "Succeeded");

@@ -131,8 +131,10 @@
     <Compile Include="AMS\IAMSProvider.cs" />
     <Compile Include="Entities\JobSubmitData.cs" />
     <Compile Include="Entities\MMRKStatus.cs" />
+    <Compile Include="Entities\RequestData.cs" />
     <Compile Include="Entities\UnifiedResponse.cs" />
     <Compile Include="Entities\WMAssetOutputMessage.cs" />
+    <Compile Include="Extensions.cs" />
     <Compile Include="IActionsProvider.cs" />
     <Compile Include="K8S\IK8SClient.cs" />
     <Compile Include="K8S\K8SClient.cs" />
