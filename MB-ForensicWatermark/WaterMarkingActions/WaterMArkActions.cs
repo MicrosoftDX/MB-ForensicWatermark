@@ -173,7 +173,7 @@ namespace WaterMarkingActions
             {
 
             
-            //List only Finished without AsstID
+            //List only Finished without AssetID
             foreach (var watermarkedInfo in manifest.EmbebedCodesList)
             {
                 if ((watermarkedInfo.State == ExecutionStatus.Finished) && (string.IsNullOrEmpty(watermarkedInfo.AssetID)))
@@ -267,7 +267,7 @@ namespace WaterMarkingActions
                     {
                         int total = myProcessStatus.EmbebedCodesList.Count();
                         myProcessStatus.JobStatus.State = ExecutionStatus.Running;
-                        myProcessStatus.JobStatus.Details = $"Watermaerked copies {(total - nRunning)} of {total}";
+                        myProcessStatus.JobStatus.Details = $"Watermarked copies {(total - nRunning)} of {total}";
 
                     }
                     myActions.UpdateUnifiedProcessStatus(myProcessStatus);
