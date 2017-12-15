@@ -26,7 +26,7 @@ namespace embedder
         [JsonProperty(propertyName: "VideoInformation")]
         public VideoInformation[] PreprocessorItems { get; set; }
 
-        [JsonProperty(propertyName: "EnbebedCodes")]
+        [JsonProperty(propertyName: "EmbeddedCodes")]
         public EmbedderJobs[] EmbedderJobs { get; set; }
     }
 

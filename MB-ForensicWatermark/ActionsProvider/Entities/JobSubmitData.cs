@@ -39,7 +39,7 @@ namespace ActionsProvider.Entities
         public string PreprocessorNotificationQueue { get; set; }
         public string EmbedderNotificationQueue { get; set; }
         public List<VideoInformation> VideoInformation { get; set; }
-        public List<EmbeddedCode> EnbebedCodes { get; set; }
+        public List<EmbeddedCode> EmbeddedCodes { get; set; }
     }
 
    

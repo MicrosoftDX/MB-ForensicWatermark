@@ -125,7 +125,7 @@ namespace ActionsProvider.AMS
                 VideoInformation video = CreateVideoInformationK28JobNode(file.Name, theAsset, AssetLocatorPath);
                 manifestInfo.VideoInformation.Add(video);
                 //Watermarked
-                foreach (var code in manifestInfo.EnbebedCodes)
+                foreach (var code in manifestInfo.EmbeddedCodes)
                 {
                     var wmp4Name = System.Web.HttpUtility.UrlPathEncode(video.FileName);
                     code.MP4WatermarkedURL.Add(new MP4WatermarkedURL()
@@ -170,12 +170,12 @@ namespace ActionsProvider.AMS
                 PreprocessorNotificationQueue = PreprocessorNotificationQueue,
                 //Video information
                 VideoInformation = new List<VideoInformation>(),
-                //Enbebedcodes
-                EnbebedCodes = new List<EmbeddedCode>()
+                //EmbeddedCodes
+                EmbeddedCodes = new List<EmbeddedCode>()
             };
             foreach (var code in codes)
             {
-                myData.EnbebedCodes.Add(new EmbeddedCode()
+                myData.EmbeddedCodes.Add(new EmbeddedCode()
                 {
                     Embeddedcode = code,
                     MP4WatermarkedURL = new List<MP4WatermarkedURL>()

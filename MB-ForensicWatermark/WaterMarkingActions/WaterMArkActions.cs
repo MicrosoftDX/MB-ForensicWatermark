@@ -149,8 +149,8 @@ namespace WaterMarkingActions
             }
             return req.CreateResponse(HttpStatusCode.OK, new { Status = ExecutionStatus.Finished.ToString() }, JsonMediaTypeFormatter.DefaultMediaType);
         }
-        [FunctionName("EvalEnbebedCodes")]
-        public static async Task<HttpResponseMessage> EvalEnbebedCodes([HttpTrigger(AuthorizationLevel.Function, "post", Route = null)]HttpRequestMessage req, TraceWriter log)
+        [FunctionName("EvalEmbeddedCodes")]
+        public static async Task<HttpResponseMessage> EvalEmbeddedCodes([HttpTrigger(AuthorizationLevel.Function, "post", Route = null)]HttpRequestMessage req, TraceWriter log)
         {
             IActionsProvider myActions = ActionProviderFactory.GetActionProvider();
             string content = await req.Content.ReadAsStringAsync();

@@ -528,18 +528,18 @@ namespace ActionsProvider
             {
                 AssetID = manifest.AssetID,
                 EmbedderNotificationQueue = manifest.EmbedderNotificationQueue,
-                EnbebedCodes = new List<EnbebedCode>(),
+                EmbeddedCodes = new List<EmbeddedCode>(),
                 JobId = manifest.JobId,
                 PreprocessorNotificationQueue = manifest.PreprocessorNotificationQueue,
                 VideoInformation = new List<VideoInformation>()
             };
             //Add aggregated video info nodes
             aggregateJobManifest.VideoInformation.AddRange(manifest.VideoInformation.Skip(skip).Take(take));
-            foreach (var emc in manifest.EnbebedCodes)
+            foreach (var emc in manifest.EmbeddedCodes)
             {
-                EnbebedCode jobemc = new EnbebedCode()
+                EmbeddedCode jobemc = new EmbeddedCode()
                 {
-                    EmbeddedCode = emc.EmbeddedCode,
+                    Embeddedcode = emc.Embeddedcode,
                     MP4WatermarkedURL = new List<MP4WatermarkedURL>()
                 };
                 foreach (var vi in aggregateJobManifest.VideoInformation)
@@ -548,7 +548,7 @@ namespace ActionsProvider
                     //add to the list
                     jobemc.MP4WatermarkedURL.Add(myMMP4WatermarkeInfo);
                 }
-                aggregateJobManifest.EnbebedCodes.Add(jobemc);
+                aggregateJobManifest.EmbeddedCodes.Add(jobemc);
             }
             return aggregateJobManifest;
 
