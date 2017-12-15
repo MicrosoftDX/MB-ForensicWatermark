@@ -57,7 +57,7 @@ namespace ActionsProvider
             myTable.Execute(InsertOrReplace);
             return renderData;
         }
-        public List<UnifiedResponse.WaterMarkedRender> GetWaterMarkedRenders(string ParentAssetID, string EmbebedCodeValue)
+        public List<UnifiedResponse.WaterMarkedRender> GetWaterMarkedRenders(string ParentAssetId, string EmbeddedCodeValue)
         {
             List<UnifiedResponse.WaterMarkedRender> myList = new List<UnifiedResponse.WaterMarkedRender>();
             var wmrTable = tableClient.GetTableReference(ReferenceNames.WaterMarkedRender);
@@ -65,7 +65,7 @@ namespace ActionsProvider
 
             TableQuery<UnifiedResponse.TWaterMarkedRender> query =
                 new TableQuery<UnifiedResponse.TWaterMarkedRender>().Where(TableQuery.GenerateFilterCondition(
-                    "PartitionKey", QueryComparisons.Equal, $"{ParentAssetID}-{EmbebedCodeValue}"));
+                    "PartitionKey", QueryComparisons.Equal, $"{ParentAssetId}-{EmbeddedCodeValue}"));
 
             var wmrTList = wmrTable.ExecuteQuery(query);
 
@@ -77,17 +77,17 @@ namespace ActionsProvider
 
             return myList;
         }
-        public UnifiedResponse.WaterMarkedRender GetWaterMarkedRender(string ParentAssetID, string EmbebedCodeValue, string RenderName)
+        public UnifiedResponse.WaterMarkedRender GetWaterMarkedRender(string ParentAssetId, string EmbeddedCodeValue, string RenderName)
         {
             UnifiedResponse.WaterMarkedRender x = null;
             UnifiedResponse.WaterMarkedAssetInfo wai = new UnifiedResponse.WaterMarkedAssetInfo()
             {
-                AssetID = ParentAssetID,
+                AssetID = ParentAssetId,
 
             };
             var myTable = tableClient.GetTableReference(ReferenceNames.WaterMarkedRender);
             myTable.CreateIfNotExists();
-            TableOperation retrieveOperation = TableOperation.Retrieve<UnifiedResponse.TWaterMarkedRender>($"{ParentAssetID}-{EmbebedCodeValue}", RenderName);
+            TableOperation retrieveOperation = TableOperation.Retrieve<UnifiedResponse.TWaterMarkedRender>($"{ParentAssetId}-{EmbeddedCodeValue}", RenderName);
             TableResult retrievedResult = myTable.Execute(retrieveOperation);
             if (retrievedResult.Result != null)
             {
@@ -107,7 +107,7 @@ namespace ActionsProvider
                 try
                 {
                     NotificationEmbedder rawdata = Newtonsoft.Json.JsonConvert.DeserializeObject<NotificationEmbedder>(message.AsString);
-                    WaterMarkedRender data = GetWaterMarkedRender(rawdata.AssetID, rawdata.EmbebedCode, rawdata.FileName);
+                    WaterMarkedRender data = GetWaterMarkedRender(rawdata.AssetID, rawdata.EmbeddedCode, rawdata.FileName);
                     string url = data.MP4URL;
                     data = new WaterMarkedRender(rawdata, url);
                     var outputData = UpdateWaterMarkedRender(data);
@@ -204,16 +204,16 @@ namespace ActionsProvider
             TableOperation InsertOrReplace = TableOperation.InsertOrReplace(new UnifiedResponse.TJobStatus(curretnData.JobStatus, curretnData.AssetStatus.AssetId));
             _ProcessStatusTable.Execute(InsertOrReplace);
             //Update all Enbebed
-            foreach (var data in curretnData.EmbebedCodesList)
+            foreach (var data in curretnData.EmbeddedCodesList)
             {
                 UpdateWaterMarkedAssetInfo(data, curretnData.AssetStatus.AssetId);
             }
 
         }
-        private UnifiedResponse.JobStatus GetJobStatus(string AssetId, string JobID)
+        private UnifiedResponse.JobStatus GetJobStatus(string AssetId, string JobId)
         {
             UnifiedResponse.JobStatus data = null;
-            TableOperation retrieveOperation = TableOperation.Retrieve<UnifiedResponse.TJobStatus>(AssetId, JobID);
+            TableOperation retrieveOperation = TableOperation.Retrieve<UnifiedResponse.TJobStatus>(AssetId, JobId);
             TableResult retrievedResult = _ProcessStatusTable.Execute(retrieveOperation);
             if (retrievedResult.Result != null)
             {
@@ -221,44 +221,44 @@ namespace ActionsProvider
             }
             return data;
         }
-        public UnifiedResponse.UnifiedProcessStatus GetUnifiedProcessStatus(string AssetId, string JobID)
+        public UnifiedResponse.UnifiedProcessStatus GetUnifiedProcessStatus(string AssetId, string JobId)
         {
             UnifiedResponse.UnifiedProcessStatus Manifest = new UnifiedResponse.UnifiedProcessStatus
             {
                 AssetStatus = GetAssetStatus(AssetId),
-                JobStatus = GetJobStatus(AssetId, JobID),
-                EmbebedCodesList = new List<UnifiedResponse.WaterMarkedAssetInfo>()
+                JobStatus = GetJobStatus(AssetId, JobId),
+                EmbeddedCodesList = new List<UnifiedResponse.WaterMarkedAssetInfo>()
 
             };
-            foreach (var ecode in Manifest.JobStatus.EmbebedCodeList)
+            foreach (var ecode in Manifest.JobStatus.EmbeddedCodeList)
             {
-                Manifest.EmbebedCodesList.Add(GetWaterMarkedAssetInfo(AssetId, ecode));
+                Manifest.EmbeddedCodesList.Add(GetWaterMarkedAssetInfo(AssetId, ecode));
             }
             return Manifest;
         }
-        public UnifiedResponse.UnifiedProcessStatus StartNewProcess(string AssetId, string JobId, string[] EmbebedCodeList)
+        public UnifiedResponse.UnifiedProcessStatus StartNewProcess(string AssetId, string JobId, string[] EmbeddedCodeList)
         {
             //NEW Process
             UnifiedResponse.UnifiedProcessStatus newProcess = new UnifiedResponse.UnifiedProcessStatus
             {
-                EmbebedCodesList = new List<UnifiedResponse.WaterMarkedAssetInfo>(),
+                EmbeddedCodesList = new List<UnifiedResponse.WaterMarkedAssetInfo>(),
                 //2. JobStatus
                 JobStatus = new UnifiedResponse.JobStatus()
                 {
                     Details = "Queue",
                     Duration = null,
                     FinishTime = null,
-                    JobID = JobId,
+                    JobId = JobId,
                     StartTime = DateTime.Now,
                     State = ExecutionStatus.Running,
-                    EmbebedCodeList = EmbebedCodeList
+                    EmbeddedCodeList = EmbeddedCodeList
                 },
 
                 AssetStatus = GetAssetStatus(AssetId) ?? new UnifiedResponse.AssetStatus() { AssetId = AssetId, State = ExecutionStatus.New }
             };
 
             //Status
-            ExecutionStatus EmbebedStatus = ExecutionStatus.New;
+            ExecutionStatus EmbeddedStatus = ExecutionStatus.New;
 
             switch (newProcess.AssetStatus.State)
             {
@@ -267,7 +267,7 @@ namespace ActionsProvider
                     newProcess.JobStatus.Details = "MMRK Files Generation Error";
                     newProcess.JobStatus.FinishTime = DateTime.Now;
                     newProcess.JobStatus.Duration = DateTime.Now.Subtract(newProcess.JobStatus.StartTime);
-                    EmbebedStatus = ExecutionStatus.Aborted;
+                    EmbeddedStatus = ExecutionStatus.Aborted;
 
                     break;
                 case ExecutionStatus.Running:
@@ -275,7 +275,7 @@ namespace ActionsProvider
                     newProcess.JobStatus.State = ExecutionStatus.Error;
                     newProcess.JobStatus.FinishTime = DateTime.Now;
                     newProcess.JobStatus.Duration = DateTime.Now.Subtract(newProcess.JobStatus.StartTime);
-                    EmbebedStatus = ExecutionStatus.Aborted;
+                    EmbeddedStatus = ExecutionStatus.Aborted;
 
                     break;
 
@@ -287,7 +287,7 @@ namespace ActionsProvider
                         //New Asset
                         //Asset has not oter process running
                         newProcess.AssetStatus.State = ExecutionStatus.Running;
-                        EmbebedStatus = ExecutionStatus.Running;
+                        EmbeddedStatus = ExecutionStatus.Running;
                         newProcess.JobStatus.State = ExecutionStatus.Running;
                     }
                     else
@@ -301,12 +301,12 @@ namespace ActionsProvider
                             newProcess.JobStatus.State = ExecutionStatus.Error;
                             newProcess.JobStatus.FinishTime = DateTime.Now;
                             newProcess.JobStatus.Duration = DateTime.Now.Subtract(newProcess.JobStatus.StartTime);
-                            EmbebedStatus = ExecutionStatus.Aborted;
+                            EmbeddedStatus = ExecutionStatus.Aborted;
                         }
                         else
                         {
                             //Asset has not other process running
-                            EmbebedStatus = ExecutionStatus.Running;
+                            EmbeddedStatus = ExecutionStatus.Running;
                             newProcess.JobStatus.State = ExecutionStatus.Running;
                         }
                     }
@@ -314,15 +314,15 @@ namespace ActionsProvider
                 default:
                     break;
             }
-            //Embebedecodes
-            foreach (var code in EmbebedCodeList)
+            //Embeddedecodes
+            foreach (var code in EmbeddedCodeList)
             {
-                newProcess.EmbebedCodesList.Add(
+                newProcess.EmbeddedCodesList.Add(
                     new UnifiedResponse.WaterMarkedAssetInfo()
                     {
-                        ParentAssetID = AssetId,
-                        State = EmbebedStatus,
-                        EmbebedCodeValue = code,
+                        ParentAssetId = AssetId,
+                        State = EmbeddedStatus,
+                        EmbeddedCodeValue = code,
                         AssetID = "",
                         Details = "Just Start"
                     });
@@ -349,7 +349,7 @@ namespace ActionsProvider
                     break;
 
             }
-            foreach (var watermaekAssetInfo in processState.EmbebedCodesList)
+            foreach (var watermaekAssetInfo in processState.EmbeddedCodesList)
             {
                 watermaekAssetInfo.State = watermarkState;
                 watermaekAssetInfo.Details = WaterMarkCopiesStatusDetails;
@@ -392,10 +392,10 @@ namespace ActionsProvider
             _WaterMarkedAssetInfo.Execute(InsertOrReplace);
             return data;
         }
-        private UnifiedResponse.WaterMarkedAssetInfo GetWaterMarkedAssetInfo(string AssetId, string EmbebedCodeValue)
+        private UnifiedResponse.WaterMarkedAssetInfo GetWaterMarkedAssetInfo(string AssetId, string EmbeddedCodeValue)
         {
             UnifiedResponse.WaterMarkedAssetInfo z = null;
-            TableOperation retrieveOperation = TableOperation.Retrieve<UnifiedResponse.TWaterMarkedAssetInfo>(AssetId, EmbebedCodeValue);
+            TableOperation retrieveOperation = TableOperation.Retrieve<UnifiedResponse.TWaterMarkedAssetInfo>(AssetId, EmbeddedCodeValue);
             TableResult retrievedResult = _WaterMarkedAssetInfo.Execute(retrieveOperation);
             if (retrievedResult.Result != null)
             {
@@ -404,9 +404,9 @@ namespace ActionsProvider
 
             return z;
         }
-        public UnifiedResponse.WaterMarkedAssetInfo EvalWaterMarkedAssetInfo(string ParentAssetID, string EmbebedCodeValue)
+        public UnifiedResponse.WaterMarkedAssetInfo EvalWaterMarkedAssetInfo(string ParentAssetId, string EmbeddedCodeValue)
         {
-            UnifiedResponse.WaterMarkedAssetInfo currentWaterMarkInfo = GetWaterMarkedAssetInfo(ParentAssetID, EmbebedCodeValue);
+            UnifiedResponse.WaterMarkedAssetInfo currentWaterMarkInfo = GetWaterMarkedAssetInfo(ParentAssetId, EmbeddedCodeValue);
 
             if (currentWaterMarkInfo.State == ExecutionStatus.Running)
             {
@@ -415,7 +415,7 @@ namespace ActionsProvider
 
                 TableQuery<UnifiedResponse.TWaterMarkedRender> query =
                     new TableQuery<UnifiedResponse.TWaterMarkedRender>().Where(TableQuery.GenerateFilterCondition(
-                        "PartitionKey", QueryComparisons.Equal, $"{ParentAssetID}-{EmbebedCodeValue}"));
+                        "PartitionKey", QueryComparisons.Equal, $"{ParentAssetId}-{EmbeddedCodeValue}"));
 
                 var wmrList = wmrTable.ExecuteQuery(query);
                 if (wmrList != null)
@@ -424,7 +424,7 @@ namespace ActionsProvider
                     {
                         //Error
                         currentWaterMarkInfo.State = ExecutionStatus.Error;
-                        //Update EmbebedCode
+                        //Update EmbeddedCode
                         currentWaterMarkInfo.State = ExecutionStatus.Error;
                         currentWaterMarkInfo.Details = $"Render with errors";
                     }
@@ -441,7 +441,7 @@ namespace ActionsProvider
                         currentWaterMarkInfo.Details = $"Ready {finishcount} of {wmrList.Count()}";
                     }
                 }
-                UpdateWaterMarkedAssetInfo(currentWaterMarkInfo, ParentAssetID);
+                UpdateWaterMarkedAssetInfo(currentWaterMarkInfo, ParentAssetId);
             }
 
             return currentWaterMarkInfo;
@@ -466,7 +466,7 @@ namespace ActionsProvider
                 {
                     var jNotification = Newtonsoft.Json.Linq.JObject.Parse(message.AsString);
                     // Retrive 
-                    string jobRender = $"[{(string)jNotification["JobID"]}]{(string)jNotification["FileName"]}";
+                    string jobRender = $"[{(string)jNotification["JobId"]}]{(string)jNotification["FileName"]}";
                     var MMRK = GetMMRKStatus((string)jNotification["AssetID"], jobRender);
                     //Update MMRK Status
                     MMRK.Details = (string)jNotification["JobOutput"];
@@ -488,7 +488,7 @@ namespace ActionsProvider
 
         #endregion
         #region K8S JOBS
-        private string GetJobYmal(string JobID, string JOBBASE64, string imagename)
+        private string GetJobYmal(string JobId, string JOBBASE64, string imagename)
         {
             string path;
             if (Environment.GetEnvironmentVariable("HOME") != null)
@@ -501,7 +501,7 @@ namespace ActionsProvider
             }
             string ymal = System.IO.File.ReadAllText(path);
 
-            ymal = ymal.Replace("[JOBNAME]", "allinone-job-" + JobID);
+            ymal = ymal.Replace("[JOBNAME]", "allinone-job-" + JobId);
 
             ymal = ymal.Replace("[IMAGENAME]", imagename);
 
@@ -513,7 +513,7 @@ namespace ActionsProvider
             string manifesttxt = Newtonsoft.Json.JsonConvert.SerializeObject(manifest);
             string jobbase64 = System.Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(manifesttxt), Base64FormattingOptions.None);
             string imageName = System.Configuration.ConfigurationManager.AppSettings["imageName"];
-            string jobtxt = GetJobYmal(manifest.JobID + "-" + subId.ToString(), jobbase64, imageName);
+            string jobtxt = GetJobYmal(manifest.JobId + "-" + subId.ToString(), jobbase64, imageName);
             HttpContent ymal = new StringContent(jobtxt, Encoding.UTF8, "application/yaml");
 
             // Submite JOB
@@ -529,7 +529,7 @@ namespace ActionsProvider
                 AssetID = manifest.AssetID,
                 EmbedderNotificationQueue = manifest.EmbedderNotificationQueue,
                 EnbebedCodes = new List<EnbebedCode>(),
-                JobID = manifest.JobID,
+                JobId = manifest.JobId,
                 PreprocessorNotificationQueue = manifest.PreprocessorNotificationQueue,
                 VideoInformation = new List<VideoInformation>()
             };
@@ -539,7 +539,7 @@ namespace ActionsProvider
             {
                 EnbebedCode jobemc = new EnbebedCode()
                 {
-                    EmbebedCode = emc.EmbebedCode,
+                    EmbeddedCode = emc.EmbeddedCode,
                     MP4WatermarkedURL = new List<MP4WatermarkedURL>()
                 };
                 foreach (var vi in aggregateJobManifest.VideoInformation)

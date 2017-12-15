@@ -11,11 +11,11 @@ namespace embedder
 
     public class EmbedderJobDTO
     {
-        [JsonProperty(propertyName: "JobID")]
-        public string JobID { get; set; }
+        [JsonProperty(propertyName: "JobId")]
+        public string JobId { get; set; }
 
-        [JsonProperty(propertyName: "AssetID")]
-        public string AssetID { get; set; }
+        [JsonProperty(propertyName: "AssetId")]
+        public string AssetId { get; set; }
 
         [JsonProperty(propertyName: "PreprocessorNotificationQueue")]
         public string PreprocessorNotificationQueue { get; set; }
@@ -62,8 +62,8 @@ namespace embedder
 
     public class EmbedderJobs
     {
-        [JsonProperty(propertyName: "EmbebedCode")]
-        public string UserID { get; set; }
+        [JsonProperty(propertyName: "EmbeddedCode")]
+        public string UserId { get; set; }
 
         [JsonProperty(propertyName: "MP4WatermarkedURL")]
         public EmbedderItems[] EmbedderItems { get; set; }
@@ -105,11 +105,11 @@ namespace embedder
 
     public class NotificationPreprocessor : INotificationMessage
     {
-        [JsonProperty(propertyName: "JobID")]
-        public string JobID { get; set; }
+        [JsonProperty(propertyName: "JobId")]
+        public string JobId { get; set; }
 
-        [JsonProperty(propertyName: "AssetID")]
-        public string AssetID { get; set; }
+        [JsonProperty(propertyName: "AssetId")]
+        public string AssetId { get; set; }
 
         [JsonProperty(propertyName: "FileName")]
         public string FileName { get; set; }
@@ -136,17 +136,17 @@ namespace embedder
 
     public class NotificationEmbedder : INotificationMessage
     {
-        [JsonProperty(propertyName: "JobID")]
-        public string JobID { get; set; }
+        [JsonProperty(propertyName: "JobId")]
+        public string JobId { get; set; }
 
-        [JsonProperty(propertyName: "AssetID")]
-        public string AssetID { get; set; }
+        [JsonProperty(propertyName: "AssetId")]
+        public string AssetId { get; set; }
 
         [JsonProperty(propertyName: "FileName")]
         public string FileName { get; set; }
 
-        [JsonProperty(propertyName: "EmbebedCode")]
-        public string UserID { get; set; }
+        [JsonProperty(propertyName: "EmbeddedCode")]
+        public string UserId { get; set; }
 
         [JsonProperty(propertyName: "Status")]
         public JobStatus Status { get; set; }

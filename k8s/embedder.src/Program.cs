@@ -38,7 +38,7 @@ namespace embedder
         {
             internal EmbedderJobDTO Job { get; set; }
             public string Name { get; set; }
-            public string UserID { get; set; }
+            public string UserId { get; set; }
             public Uri MmrkURL { get; set; }
             public FileInfo MmrkFile { get; set; }
             public Uri WatermarkedURL { get; set; }
@@ -191,8 +191,8 @@ namespace embedder
                     stderr(output.Output);
                     var queueOutput = await _.Queue.DispatchMessage(new NotificationPreprocessor
                     {
-                        AssetID = _.Job.AssetID,
-                        JobID = _.Job.JobID,
+                        AssetId = _.Job.AssetId,
+                        JobId = _.Job.JobId,
                         FileName = _.Name,
                         Status = JobStatus.Error,
                         JobOutput = output.Output, 
@@ -268,8 +268,8 @@ namespace embedder
                     stderr(output.Output);
                     var queueOutput = await _.Queue.DispatchMessage(new NotificationPreprocessor
                     {
-                        AssetID = _.Job.AssetID,
-                        JobID = _.Job.JobID,
+                        AssetId = _.Job.AssetId,
+                        JobId = _.Job.JobId,
                         FileName = _.Name,
                         Status = JobStatus.Error,
                         JobOutput = output.Output,
@@ -345,8 +345,8 @@ namespace embedder
                     stdout($"***Start  PREPROCESSOR Error Notification Message {DateTime.Now.ToString()}");
                     var queueOutput = await _.Queue.DispatchMessage(new NotificationPreprocessor
                     {
-                        AssetID = _.Job.AssetID,
-                        JobID = _.Job.JobID,
+                        AssetId = _.Job.AssetId,
+                        JobId = _.Job.JobId,
                         FileName = _.Name,
                         Status = JobStatus.Error,
                         JobOutput = output.Output,
@@ -375,8 +375,8 @@ namespace embedder
                     stdout(output.Output);
                     var queueOutput = await _.Queue.DispatchMessage(new NotificationPreprocessor
                     {
-                        AssetID = _.Job.AssetID,
-                        JobID = _.Job.JobID,
+                        AssetId = _.Job.AssetId,
+                        JobId = _.Job.JobId,
                         FileName = _.Name,
                         Status = JobStatus.Finished,
                         JobOutput = output.Output,
@@ -392,8 +392,8 @@ namespace embedder
                     stderr(output.Output);
                     var queueOutput = await _.Queue.DispatchMessage(new NotificationPreprocessor
                     {
-                        AssetID = _.Job.AssetID,
-                        JobID = _.Job.JobID,
+                        AssetId = _.Job.AssetId,
+                        JobId = _.Job.JobId,
                         FileName = _.Name,
                         Status = JobStatus.Error,
                         JobOutput = output.Output,
@@ -425,8 +425,8 @@ namespace embedder
                     stderr(output.Output);
                     var queueOutput = await _.Queue.DispatchMessage(new NotificationEmbedder
                     {
-                        AssetID = _.Job.AssetID,
-                        JobID = _.Job.JobID,
+                        AssetId = _.Job.AssetId,
+                        JobId = _.Job.JobId,
                         FileName = _.Name,
                         Status = JobStatus.Error,
                         JobOutput = output.Output,
@@ -455,10 +455,10 @@ namespace embedder
                 {
                     Job = job,
                     Name = b.FileName,
-                    UserID = a.UserID,
+                    UserId = a.UserId,
                     MmrkURL = job.PreprocessorItems.FirstOrDefault(_ => _.FileName == b.FileName)?.MmrkUrl.AsUri(),
                     MmrkFile = b.FileName.AsMmrkFile(),
-                    WatermarkedFile = b.FileName.AsWatermarkFileForUser(a.UserID),
+                    WatermarkedFile = b.FileName.AsWatermarkFileForUser(a.UserId),
                     WatermarkedURL = b.WaterMarkedMp4.AsUri(),
                     Queue = embedderQueue
 
@@ -477,7 +477,7 @@ namespace embedder
                 fileName: "/usr/bin/NGS_SmartEmbedderCLI",
                 arguments: new[] {
                     _.MmrkFile.FullName,
-                    _.UserID,
+                    _.UserId,
                     _.WatermarkedFile.FullName }
             );
             if (embedderOutput.Success)
@@ -489,10 +489,10 @@ namespace embedder
                 stderr(embedderOutput.Output);
                 var queueOutput = await _.Queue.DispatchMessage(new NotificationEmbedder
                 {
-                    AssetID = _.Job.AssetID,
-                    JobID = _.Job.JobID,
+                    AssetId = _.Job.AssetId,
+                    JobId = _.Job.JobId,
                     FileName = _.Name,
-                    UserID = _.UserID,
+                    UserId = _.UserId,
                     Status = JobStatus.Error,
                     JobOutput = embedderOutput.Output
                 });
@@ -513,10 +513,10 @@ namespace embedder
             {
                 var queueOutput = await _.Queue.DispatchMessage(new NotificationEmbedder
                 {
-                    AssetID = _.Job.AssetID,
-                    JobID = _.Job.JobID,
+                    AssetId = _.Job.AssetId,
+                    JobId = _.Job.JobId,
                     FileName = _.Name,
-                    UserID = _.UserID,
+                    UserId = _.UserId,
                     Status = JobStatus.Finished,
                     JobOutput = uploadResult.Output
                 });
@@ -529,10 +529,10 @@ namespace embedder
             {
                 var queueOutput = await _.Queue.DispatchMessage(new NotificationEmbedder
                 {
-                    AssetID = _.Job.AssetID,
-                    JobID = _.Job.JobID,
+                    AssetId = _.Job.AssetId,
+                    JobId = _.Job.JobId,
                     FileName = _.Name,
-                    UserID = _.UserID,
+                    UserId = _.UserId,
                     Status = JobStatus.Error, 
                     JobOutput = uploadResult.Output
                 });

@@ -131,7 +131,7 @@ namespace ActionsProvider.AMS
                     code.MP4WatermarkedURL.Add(new MP4WatermarkedURL()
                     {
                         FileName = video.FileName,
-                        WaterMarkedMp4 = GetBlobSasUri(_WaterMArkStorageBlobClient,"watermarked", $"{theAsset.Id}/{code.EmbebedCode}/{wmp4Name}", allAccess, _SASTTL)
+                        WaterMarkedMp4 = GetBlobSasUri(_WaterMArkStorageBlobClient,"watermarked", $"{theAsset.Id}/{code.EmbeddedCode}/{wmp4Name}", allAccess, _SASTTL)
                     });
                 }
             }
@@ -157,14 +157,14 @@ namespace ActionsProvider.AMS
             return accessSignature;
 
         }
-        public async Task<ManifestInfo> GetK8SJobManifestAsync(string AssetID, string JobID, List<string> codes)
+        public async Task<ManifestInfo> GetK8SJobManifestAsync(string AssetID, string JobId, List<string> codes)
         {
             string AssetLocatorPath = "";
-            string EmbedderNotificationQueue = await CreateSharedAccessPolicyAsync("embeddernotification", JobID);
-            string PreprocessorNotificationQueue = await CreateSharedAccessPolicyAsync("preprocessorout", JobID);
+            string EmbedderNotificationQueue = await CreateSharedAccessPolicyAsync("embeddernotification", JobId);
+            string PreprocessorNotificationQueue = await CreateSharedAccessPolicyAsync("preprocessorout", JobId);
             ManifestInfo myData = new ManifestInfo
             {
-                JobID = JobID,
+                JobId = JobId,
                 AssetID = AssetID,
                 EmbedderNotificationQueue = EmbedderNotificationQueue,
                 PreprocessorNotificationQueue = PreprocessorNotificationQueue,
@@ -177,7 +177,7 @@ namespace ActionsProvider.AMS
             {
                 myData.EnbebedCodes.Add(new EnbebedCode()
                 {
-                    EmbebedCode = code,
+                    EmbeddedCode = code,
                     MP4WatermarkedURL = new List<MP4WatermarkedURL>()
                 });
             }

@@ -104,7 +104,7 @@ namespace embedder
         public static FileInfo AsLocalFile(this string filename) { return (filename).AsSafeFileName(); }
         public static FileInfo AsStatsFile(this string filename) { return filename.Replace(".mp4", ".stats").AsSafeFileName(); }
         public static FileInfo AsMmrkFile(this string filename) { return filename.Replace(".mp4", ".mmrk").AsSafeFileName(); }
-        public static FileInfo AsWatermarkFileForUser(this string filename, string userid) { return (filename.Replace(".mp4", $"-{userid}.mp4")).AsSafeFileName(); }
+        public static FileInfo AsWatermarkFileForUser(this string filename, string UserId) { return (filename.Replace(".mp4", $"-{UserId}.mp4")).AsSafeFileName(); }
 
         public static Uri AsUri(this string uri) { return string.IsNullOrEmpty(uri) ? null : new Uri(uri); }
 

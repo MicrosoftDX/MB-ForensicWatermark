@@ -41,11 +41,11 @@ namespace WaterMarkingActions
         {
             dynamic BodyData = await req.Content.ReadAsAsync<object>();
             string AssetID = BodyData.AssetID;
-            string JobID = BodyData.JobID;
-            string[] EmbebedCodes = BodyData.EmbebedCodes.ToObject<string[]>();
+            string JobId = BodyData.JobId;
+            string[] EmbeddedCodes = BodyData.EmbeddedCodes.ToObject<string[]>();
             //Save Status
             IActionsProvider myActions = ActionProviderFactory.GetActionProvider();
-            var status = myActions.StartNewProcess(AssetID, JobID, EmbebedCodes);
+            var status = myActions.StartNewProcess(AssetID, JobId, EmbeddedCodes);
             return req.CreateResponse(HttpStatusCode.OK, status, JsonMediaTypeFormatter.DefaultMediaType);
         }
 
@@ -54,12 +54,12 @@ namespace WaterMarkingActions
         {
             dynamic BodyData = await req.Content.ReadAsAsync<object>();
             string AssetId = BodyData.AssetId;
-            string JobID = BodyData.JobID;
+            string JobId = BodyData.JobId;
             List<string> codes = BodyData.Codes.ToObject<List<string>>();
             IAMSProvider myAMS = AMSProviderFactory.CreateAMSProvider();
             try
             {
-                ManifestInfo jobdata = await myAMS.GetK8SJobManifestAsync(AssetId, JobID, codes);
+                ManifestInfo jobdata = await myAMS.GetK8SJobManifestAsync(AssetId, JobId, codes);
                 return req.CreateResponse(HttpStatusCode.OK, jobdata, JsonMediaTypeFormatter.DefaultMediaType);
             }
             catch (Exception X)
@@ -80,7 +80,7 @@ namespace WaterMarkingActions
             IActionsProvider myActions = ActionProviderFactory.GetActionProvider();
             if (MMRK.FileURL == "{NO UPDATE}")
             {
-                string jobRender = $"[{MMRK.JobID}]{MMRK.FileName}";
+                string jobRender = $"[{MMRK.JobId}]{MMRK.FileName}";
                 var currentMMRKStatus = myActions.GetMMRKStatus(MMRK.AssetID, jobRender);
                 string url = currentMMRKStatus.FileURL;
                 MMRK.FileURL = url;
@@ -114,17 +114,17 @@ namespace WaterMarkingActions
             IActionsProvider myActions = ActionProviderFactory.GetActionProvider();
             dynamic BodyData = await req.Content.ReadAsAsync<object>();
             EnbebedCode myCode = BodyData.EnbebedCode.ToObject<EnbebedCode>();
-            string ParentAssetID = BodyData.ParentAssetID;
+            string ParentAssetId = BodyData.ParentAssetId;
 
             foreach (var info in myCode.MP4WatermarkedURL)
             {
                 WaterMarkedRender data = new WaterMarkedRender()
                 {
                     Details = "Submited",
-                    EmbebedCodeValue = myCode.EmbebedCode,
+                    EmbeddedCodeValue = myCode.EmbeddedCode,
                     MP4URL = info.WaterMarkedMp4,
                     RenderName = info.FileName,
-                    ParentAssetID = ParentAssetID,
+                    ParentAssetId = ParentAssetId,
                     State = ExecutionStatus.Running
 
                 };
@@ -139,20 +139,20 @@ namespace WaterMarkingActions
             IActionsProvider myActions = ActionProviderFactory.GetActionProvider();
             dynamic BodyData = await req.Content.ReadAsAsync<object>();
             UnifiedProcessStatus manifest = BodyData.ToObject<UnifiedProcessStatus>();
-            string ParentAssetID = manifest.AssetStatus.AssetId;
+            string ParentAssetId = manifest.AssetStatus.AssetId;
             //1. Process Embbeded Notifications
             int nNotification = await myActions.EvalPEmbeddedNotifications();
             log.Info($"Embedded Notifications processed {nNotification}");
             //2. Eval Each Watermark Render status
             List<WaterMarkedAssetInfo> UpdatedInfo = new List<WaterMarkedAssetInfo>();
-            foreach (var item in manifest.EmbebedCodesList)
+            foreach (var item in manifest.EmbeddedCodesList)
             {
 
-                UpdatedInfo.Add(myActions.EvalWaterMarkedAssetInfo(ParentAssetID, item.EmbebedCodeValue));
+                UpdatedInfo.Add(myActions.EvalWaterMarkedAssetInfo(ParentAssetId, item.EmbeddedCodeValue));
 
             }
             //Replace New WaterMarkAssetInfo
-            manifest.EmbebedCodesList = UpdatedInfo;
+            manifest.EmbeddedCodesList = UpdatedInfo;
             //
             myActions.UpdateUnifiedProcessStatus(manifest);
 
@@ -165,7 +165,7 @@ namespace WaterMarkingActions
 
             dynamic BodyData = await req.Content.ReadAsAsync<object>();
             UnifiedProcessStatus manifest = BodyData.ToObject<UnifiedProcessStatus>();
-            string ParentAssetID = manifest.AssetStatus.AssetId;
+            string ParentAssetId = manifest.AssetStatus.AssetId;
 
             List<WaterMarkedAssetInfo> UpdatedInfo = new List<WaterMarkedAssetInfo>();
 
@@ -174,20 +174,20 @@ namespace WaterMarkingActions
 
             
             //List only Finished without AssetID
-            foreach (var watermarkedInfo in manifest.EmbebedCodesList)
+            foreach (var watermarkedInfo in manifest.EmbeddedCodesList)
             {
                 if ((watermarkedInfo.State == ExecutionStatus.Finished) && (string.IsNullOrEmpty(watermarkedInfo.AssetID)))
                 {
                     //Create new asset per embbeded code
                     IAMSProvider help = AMSProviderFactory.CreateAMSProvider();
-                    var xx = await help.CreateEmptyWatermarkedAsset(manifest.JobStatus.JobID, ParentAssetID, watermarkedInfo.EmbebedCodeValue);
+                    var xx = await help.CreateEmptyWatermarkedAsset(manifest.JobStatus.JobId, ParentAssetId, watermarkedInfo.EmbeddedCodeValue);
 
                     watermarkedInfo.AssetID = xx.WMAssetId;
                     ////Inject all Renders on New asset
-                    foreach (var render in myActions.GetWaterMarkedRenders(ParentAssetID, watermarkedInfo.EmbebedCodeValue))
+                    foreach (var render in myActions.GetWaterMarkedRenders(ParentAssetId, watermarkedInfo.EmbeddedCodeValue))
                     {
                         string url = render.MP4URL;
-                        var r = await help.AddWatermarkedMediaFiletoAsset(watermarkedInfo.AssetID, watermarkedInfo.EmbebedCodeValue, url);
+                        var r = await help.AddWatermarkedMediaFiletoAsset(watermarkedInfo.AssetID, watermarkedInfo.EmbeddedCodeValue, url);
                         if (r.Status != "MMRK File Added")
                         {
                             //Error
@@ -206,7 +206,7 @@ namespace WaterMarkingActions
                 UpdatedInfo.Add(watermarkedInfo);
             }
             //Replace New WaterMarkAssetInfo
-            manifest.EmbebedCodesList = UpdatedInfo;
+            manifest.EmbeddedCodesList = UpdatedInfo;
 
             myActions.UpdateUnifiedProcessStatus(manifest);
             }
@@ -248,13 +248,13 @@ namespace WaterMarkingActions
 
                     myProcessStatus.JobStatus.Details = $"Generating MMRK files {mmrkFinished} of {mmrkTotal}, last update {DateTime.Now.ToString()}";
 
-                    //var jobinfo = myActions.GetJobK8SDetail(myProcessStatus.JobStatus.JobID + "-1");
+                    //var jobinfo = myActions.GetJobK8SDetail(myProcessStatus.JobStatus.JobId + "-1");
                     //myProcessStatus.JobStatus.Details += Newtonsoft.Json.JsonConvert.SerializeObject(jobinfo, Newtonsoft.Json.Formatting.Indented);
 
                     break;
                 case ExecutionStatus.Finished:
-                    //Check EmbebedCodeList
-                    int nRunning = myProcessStatus.EmbebedCodesList.Where(emc => emc.State == ExecutionStatus.Running).Count();
+                    //Check EmbeddedCodeList
+                    int nRunning = myProcessStatus.EmbeddedCodesList.Where(emc => emc.State == ExecutionStatus.Running).Count();
                     log.Info($"Current EMC Running {nRunning}");
                     if (nRunning == 0)
                     {
@@ -265,7 +265,7 @@ namespace WaterMarkingActions
                     }
                     else
                     {
-                        int total = myProcessStatus.EmbebedCodesList.Count();
+                        int total = myProcessStatus.EmbeddedCodesList.Count();
                         myProcessStatus.JobStatus.State = ExecutionStatus.Running;
                         myProcessStatus.JobStatus.Details = $"Watermarked copies {(total - nRunning)} of {total}";
 
@@ -283,11 +283,11 @@ namespace WaterMarkingActions
             dynamic BodyData = await req.Content.ReadAsAsync<object>();
             IActionsProvider myActions = ActionProviderFactory.GetActionProvider();
             string AssetId = BodyData.AssetId;
-            string JobID = BodyData.JobID;
+            string JobId = BodyData.JobId;
                       
             try
             {
-                var myProcessStatus = myActions.GetUnifiedProcessStatus(AssetId, JobID);
+                var myProcessStatus = myActions.GetUnifiedProcessStatus(AssetId, JobId);
                 return req.CreateResponse(HttpStatusCode.OK, myProcessStatus, JsonMediaTypeFormatter.DefaultMediaType);
             }
             catch (Exception X)

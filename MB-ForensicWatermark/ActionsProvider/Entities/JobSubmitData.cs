@@ -28,13 +28,13 @@ namespace ActionsProvider.Entities
 
     public class EnbebedCode
     {
-        public string EmbebedCode { get; set; }
+        public string EmbeddedCode { get; set; }
         public List<MP4WatermarkedURL> MP4WatermarkedURL { get; set; }
     }
 
     public class ManifestInfo
     {
-        public string JobID { get; set; }
+        public string JobId { get; set; }
         public string AssetID { get; set; }
         public string PreprocessorNotificationQueue { get; set; }
         public string EmbedderNotificationQueue { get; set; }

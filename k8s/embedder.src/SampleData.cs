@@ -32,14 +32,14 @@ namespace embedder
 
             var embedDetails = new[]
             {
-                new { UserID = "0x123456", WatermarkURL = "https://mediahack.blob.core.windows.net/asset-80dcf6de-33bb-4ddc-89b7-1500afdd9736-0x123456?st=2017-06-29T15%3A29%3A00Z&se=2017-09-30T15%3A29%3A00Z&sp=rw&sv=2015-12-11&sr=c&sig=6gOwBCNG3xRnbJ%2F1OpNmg48MkuO0GsvPdg84HnHCPGU%3D" },
-                new { UserID = "0x654321", WatermarkURL = "https://mediahack.blob.core.windows.net/asset-80dcf6de-33bb-4ddc-89b7-1500afdd9736-0x654321?st=2017-06-29T15%3A29%3A00Z&se=2017-07-30T15%3A29%3A00Z&sp=rw&sv=2015-12-11&sr=c&sig=t78%2FAWclQpw9%2F2RqF3v8%2Bp2g%2BFr4sL0s%2FsrWB8gjMOw%3D" }
+                new { UserId = "0x123456", WatermarkURL = "https://mediahack.blob.core.windows.net/asset-80dcf6de-33bb-4ddc-89b7-1500afdd9736-0x123456?st=2017-06-29T15%3A29%3A00Z&se=2017-09-30T15%3A29%3A00Z&sp=rw&sv=2015-12-11&sr=c&sig=6gOwBCNG3xRnbJ%2F1OpNmg48MkuO0GsvPdg84HnHCPGU%3D" },
+                new { UserId = "0x654321", WatermarkURL = "https://mediahack.blob.core.windows.net/asset-80dcf6de-33bb-4ddc-89b7-1500afdd9736-0x654321?st=2017-06-29T15%3A29%3A00Z&se=2017-07-30T15%3A29%3A00Z&sp=rw&sv=2015-12-11&sr=c&sig=t78%2FAWclQpw9%2F2RqF3v8%2Bp2g%2BFr4sL0s%2FsrWB8gjMOw%3D" }
             };
 
             var preprocessorAndEmbedderJob = new EmbedderJobDTO
             {
-                JobID = "nb:cid:UUID:80dcf6de-33bb-4ddc-89b7-1500afdd9736-full",
-                AssetID = "nb:cid:UUID:80dcf6de-33bb-4ddc-89b7-1500afdd9736",
+                JobId = "nb:cid:UUID:80dcf6de-33bb-4ddc-89b7-1500afdd9736-full",
+                AssetId = "nb:cid:UUID:80dcf6de-33bb-4ddc-89b7-1500afdd9736",
                 PreprocessorNotificationQueue = queue,
                 EmbedderNotificationQueue = queue,
                 PreprocessorItems = bs.Select(b => new VideoInformation
@@ -53,7 +53,7 @@ namespace embedder
                 }).ToArray(),
                 EmbedderJobs = embedDetails.Select(_ => new EmbedderJobs
                 {
-                    UserID = _.UserID,
+                    UserId = _.UserId,
                     EmbedderItems = bs.Select(b => new EmbedderItems
                     {
                         WaterMarkedMp4 = _.WatermarkURL.Replace("?", $"/{b.filename}?"),
@@ -64,8 +64,8 @@ namespace embedder
 
             var preprocessorJob = new EmbedderJobDTO
             {
-                JobID = "nb:cid:UUID:80dcf6de-33bb-4ddc-89b7-1500afdd9736-full",
-                AssetID = "nb:cid:UUID:80dcf6de-33bb-4ddc-89b7-1500afdd9736",
+                JobId = "nb:cid:UUID:80dcf6de-33bb-4ddc-89b7-1500afdd9736-full",
+                AssetId = "nb:cid:UUID:80dcf6de-33bb-4ddc-89b7-1500afdd9736",
                 PreprocessorNotificationQueue = queue,
                 EmbedderNotificationQueue = queue, 
                 PreprocessorItems = bs.Select(b => new VideoInformation
@@ -81,8 +81,8 @@ namespace embedder
 
             var embedderJob = new EmbedderJobDTO
             {
-                JobID = "nb:cid:UUID:80dcf6de-33bb-4ddc-89b7-1500afdd9736-full",
-                AssetID = "nb:cid:UUID:80dcf6de-33bb-4ddc-89b7-1500afdd9736",
+                JobId = "nb:cid:UUID:80dcf6de-33bb-4ddc-89b7-1500afdd9736-full",
+                AssetId = "nb:cid:UUID:80dcf6de-33bb-4ddc-89b7-1500afdd9736",
                 PreprocessorNotificationQueue = queue,
                 EmbedderNotificationQueue = queue,
                 PreprocessorItems = bs.Select(b => new VideoInformation
@@ -92,7 +92,7 @@ namespace embedder
                 }).ToArray(),
                 EmbedderJobs = embedDetails.Select(_ => new EmbedderJobs
                 {
-                    UserID = _.UserID,
+                    UserId = _.UserId,
                     EmbedderItems = bs.Select(b => new EmbedderItems
                     {
                         WaterMarkedMp4 = _.WatermarkURL.Replace("?", $"/{b.filename}?"),

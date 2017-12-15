@@ -41,31 +41,31 @@ namespace ActionsProvider.UnifiedResponse
     }
     public class JobStatus
     {
-        public string JobID { get; set; }
+        public string JobId { get; set; }
         public ExecutionStatus State { get; set; }
         public string Details { get; set; }
         public DateTime StartTime { get; set; }
         public DateTime? FinishTime { get; set; }
         public TimeSpan? Duration { get; set; }
-        public string[] EmbebedCodeList { get; set; }
+        public string[] EmbeddedCodeList { get; set; }
     }
     public class TJobStatus : TableEntity
     {
         public TJobStatus()
         { }
 
-        public TJobStatus(JobStatus Data, string AssetID)
+        public TJobStatus(JobStatus Data, string AssetId)
         {
-            PartitionKey = AssetID;
-            RowKey = Data.JobID;
+            PartitionKey = AssetId;
+            RowKey = Data.JobId;
             State = Data.State.ToString();
             Details = Data.Details;
             StartTime = Data.StartTime;
             FinishTime = Data.FinishTime;
             Duration = Data.Duration.ToString();
-            EmbebedCodeList =string.Join(";", Data.EmbebedCodeList);
+            EmbeddedCodeList =string.Join(";", Data.EmbeddedCodeList);
         }
-        public string EmbebedCodeList { get; set; }
+        public string EmbeddedCodeList { get; set; }
 
         public string State { get; set; }
         public string Details { get; set; }
@@ -81,9 +81,9 @@ namespace ActionsProvider.UnifiedResponse
                 //Duration = TimeSpan.Parse( Duration.ToString() ?? "",
                 FinishTime = FinishTime,
                 StartTime = StartTime,
-                JobID = RowKey,
+                JobId = RowKey,
                 State = (ExecutionStatus)Enum.Parse(typeof(ExecutionStatus), this.State),
-                EmbebedCodeList = EmbebedCodeList.Split(';')
+                EmbeddedCodeList = EmbeddedCodeList.Split(';')
             };
             if (!string.IsNullOrEmpty( Duration))
             {
@@ -94,9 +94,9 @@ namespace ActionsProvider.UnifiedResponse
     }
     public class WaterMarkedAssetInfo
     {
-        public string EmbebedCodeValue { get; set; }
+        public string EmbeddedCodeValue { get; set; }
         public ExecutionStatus State { get; set; }
-        public string ParentAssetID { get; set; }
+        public string ParentAssetId { get; set; }
         public string AssetID { get; set; }
         public string Details { get; set; }
     }
@@ -104,25 +104,25 @@ namespace ActionsProvider.UnifiedResponse
     {
         public TWaterMarkedAssetInfo ()
         { }
-        public TWaterMarkedAssetInfo (WaterMarkedAssetInfo Data, string ParentAssetID)
+        public TWaterMarkedAssetInfo (WaterMarkedAssetInfo Data, string ParentAssetId)
         {
-            this.PartitionKey = ParentAssetID;
+            this.PartitionKey = ParentAssetId;
             this.State = Data.State.ToString();
-            this.RowKey = Data.EmbebedCodeValue;
+            this.RowKey = Data.EmbeddedCodeValue;
             this.AssetID = Data.AssetID;
             this.Details = Data.Details;
-            this.EmbebedCode = Data.EmbebedCodeValue;
+            this.EmbeddedCode = Data.EmbeddedCodeValue;
         }
         public string Details { get; set; }
-        public string EmbebedCode { get; set; }
+        public string EmbeddedCode { get; set; }
         public string State { get; set; }
         public string AssetID { get; set; }
         public WaterMarkedAssetInfo GetWaterMarkedAsssetInfo()
         {
             return new WaterMarkedAssetInfo()
             {
-                ParentAssetID = PartitionKey,
-                EmbebedCodeValue = RowKey,
+                ParentAssetId = PartitionKey,
+                EmbeddedCodeValue = RowKey,
                 State= (ExecutionStatus)Enum.Parse(typeof(ExecutionStatus), this.State),
                 AssetID =AssetID,
                 Details=Details
@@ -132,8 +132,8 @@ namespace ActionsProvider.UnifiedResponse
     }
     public class WaterMarkedRender
     {
-        public string EmbebedCodeValue { get; set; }
-        public string ParentAssetID { get; set; }
+        public string EmbeddedCodeValue { get; set; }
+        public string ParentAssetId { get; set; }
          public string RenderName { get; set; }
         public string MP4URL{ get; set; }
         public string Details { get; set; }
@@ -144,10 +144,10 @@ namespace ActionsProvider.UnifiedResponse
         { }
         public WaterMarkedRender(NotificationEmbedder textData,string MP4URL)
         {
-            this.Details = $"[{textData.JobID}] {textData.JobOutput}"; 
-            this.EmbebedCodeValue = textData.EmbebedCode;
+            this.Details = $"[{textData.JobId}] {textData.JobOutput}"; 
+            this.EmbeddedCodeValue = textData.EmbeddedCode;
             this.MP4URL = MP4URL;
-            this.ParentAssetID = textData.AssetID;
+            this.ParentAssetId = textData.AssetID;
             this.RenderName = textData.FileName;
             this.State = (ExecutionStatus)Enum.Parse(typeof(ExecutionStatus), textData.Status);
             
@@ -156,9 +156,9 @@ namespace ActionsProvider.UnifiedResponse
     public class TWaterMarkedRender:TableEntity
     {
         
-        public string EmbebedCodeValue { get; set; }
+        public string EmbeddedCodeValue { get; set; }
         public string State { get; set; }
-        public string ParentAssetID { get; set; }
+        public string ParentAssetId { get; set; }
         public string MP4URL { get; set; }
         public string Details { get; set; }
 
@@ -166,12 +166,12 @@ namespace ActionsProvider.UnifiedResponse
         { }
         public  TWaterMarkedRender(WaterMarkedRender Data)
         {
-            PartitionKey = $"{Data.ParentAssetID}-{Data.EmbebedCodeValue}";
+            PartitionKey = $"{Data.ParentAssetId}-{Data.EmbeddedCodeValue}";
             RowKey = Data.RenderName;
             //Properties
-            EmbebedCodeValue = Data.EmbebedCodeValue;
+            EmbeddedCodeValue = Data.EmbeddedCodeValue;
             State = Data.State.ToString();
-            ParentAssetID = Data.ParentAssetID;
+            ParentAssetId = Data.ParentAssetId;
             MP4URL = Data.MP4URL;
             Details = Data.Details;
         }
@@ -179,9 +179,9 @@ namespace ActionsProvider.UnifiedResponse
         {
             return new WaterMarkedRender()
             {
-                EmbebedCodeValue=this.EmbebedCodeValue,
+                EmbeddedCodeValue=this.EmbeddedCodeValue,
                 MP4URL=this.MP4URL,
-                ParentAssetID=ParentAssetID,
+                ParentAssetId=ParentAssetId,
                 RenderName=RowKey,
                 State= (ExecutionStatus)Enum.Parse(typeof(ExecutionStatus), this.State),
                 Details=Details
@@ -191,10 +191,10 @@ namespace ActionsProvider.UnifiedResponse
     }
     public class NotificationEmbedder
     {
-        public string JobID { get; set; }
+        public string JobId { get; set; }
         public string AssetID { get; set; }
         public string FileName { get; set; }
-        public string EmbebedCode { get; set; }
+        public string EmbeddedCode { get; set; }
         public string Status { get; set; }
         public string JobOutput { get; set; }
 
@@ -203,6 +203,6 @@ namespace ActionsProvider.UnifiedResponse
     {
         public AssetStatus AssetStatus { get; set; }
         public JobStatus JobStatus { get; set; }
-        public List<WaterMarkedAssetInfo> EmbebedCodesList { get; set; }
+        public List<WaterMarkedAssetInfo> EmbeddedCodesList { get; set; }
     }
 }
