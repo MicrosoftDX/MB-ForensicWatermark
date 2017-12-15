@@ -131,7 +131,7 @@ namespace ActionsProvider.AMS
                     code.MP4WatermarkedURL.Add(new MP4WatermarkedURL()
                     {
                         FileName = video.FileName,
-                        WaterMarkedMp4 = GetBlobSasUri(_WaterMArkStorageBlobClient,"watermarked", $"{theAsset.Id}/{code.Embeddedcode}/{wmp4Name}", allAccess, _SASTTL)
+                        WaterMarkedMp4 = GetBlobSasUri(_WaterMArkStorageBlobClient,"watermarked", $"{theAsset.Id}/{code.Code}/{wmp4Name}", allAccess, _SASTTL)
                     });
                 }
             }
@@ -177,7 +177,7 @@ namespace ActionsProvider.AMS
             {
                 myData.EmbeddedCodes.Add(new EmbeddedCode()
                 {
-                    Embeddedcode = code,
+                    Code = code,
                     MP4WatermarkedURL = new List<MP4WatermarkedURL>()
                 });
             }

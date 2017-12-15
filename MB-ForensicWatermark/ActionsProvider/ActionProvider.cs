@@ -539,7 +539,7 @@ namespace ActionsProvider
             {
                 EmbeddedCode jobemc = new EmbeddedCode()
                 {
-                    Embeddedcode = emc.Embeddedcode,
+                    Code = emc.Code,
                     MP4WatermarkedURL = new List<MP4WatermarkedURL>()
                 };
                 foreach (var vi in aggregateJobManifest.VideoInformation)

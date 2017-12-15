@@ -28,7 +28,7 @@ namespace ActionsProvider.Entities
 
     public class EmbeddedCode
     {
-        public string Embeddedcode { get; set; }
+        public string Code { get; set; }
         public List<MP4WatermarkedURL> MP4WatermarkedURL { get; set; }
     }
 

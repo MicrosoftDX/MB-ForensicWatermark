@@ -137,7 +137,7 @@ namespace WaterMarkingActions
                 WaterMarkedRender data = new WaterMarkedRender()
                 {
                     Details = "Submited",
-                    EmbeddedCodeValue = myCode.Embeddedcode,
+                    EmbeddedCodeValue = myCode.Code,
                     MP4URL = info.WaterMarkedMp4,
                     RenderName = info.FileName,
                     ParentAssetId = ParentAssetId,
