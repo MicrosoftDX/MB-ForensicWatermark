@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
+
 using ActionsProvider;
 using ActionsProvider.AMS;
 using ActionsProvider.Entities;
@@ -37,9 +38,9 @@ namespace WaterMarkingActions
             //Save Status
             IActionsProvider myActions = ActionProviderFactory.GetActionProvider();
             var status = myActions.GetAssetStatus(AssetId);
-            if(status == null)
+            if (status == null)
             {
-                return req.CreateResponse(HttpStatusCode.NotFound,$"Asset with id '{AssetId}' was not watermarked yet.", JsonMediaTypeFormatter.DefaultMediaType);
+                return req.CreateResponse(HttpStatusCode.NotFound, $"Asset with id '{AssetId}' was not watermarked yet.", JsonMediaTypeFormatter.DefaultMediaType);
             }
             return req.CreateResponse(HttpStatusCode.OK, status, JsonMediaTypeFormatter.DefaultMediaType);
         }
@@ -51,9 +52,9 @@ namespace WaterMarkingActions
             string AssetId = BodyData.AssetId;
             string JobId = BodyData.JobId;
             string[] EmbeddedCodes = BodyData.EmbeddedCodes;
-            if(string.IsNullOrWhiteSpace(JobId) ||
+            if (string.IsNullOrWhiteSpace(JobId) ||
                string.IsNullOrWhiteSpace(AssetId) ||
-               (EmbeddedCodes == null  || EmbeddedCodes.Length == 0))
+               (EmbeddedCodes == null || EmbeddedCodes.Length == 0))
             {
                 return req.CreateResponse(HttpStatusCode.BadRequest, BodyData, JsonMediaTypeFormatter.DefaultMediaType);
             }
@@ -91,7 +92,7 @@ namespace WaterMarkingActions
 
             //Create JobStatus from body data
             MMRKStatus MMRK = content.GetBodyData<MMRKStatus>();
-            if(MMRK == null)
+            if (MMRK == null)
             {
                 return req.CreateResponse(HttpStatusCode.BadRequest, MMRK, JsonMediaTypeFormatter.DefaultMediaType);
             }
@@ -113,7 +114,7 @@ namespace WaterMarkingActions
         {
             string content = await req.Content.ReadAsStringAsync();
             UnifiedProcessStatus manifest = content.GetBodyData<UnifiedProcessStatus>();
-           if(manifest == null)
+            if (manifest == null)
             {
                 return req.CreateResponse(HttpStatusCode.BadRequest, manifest, JsonMediaTypeFormatter.DefaultMediaType);
             }
@@ -137,7 +138,7 @@ namespace WaterMarkingActions
             IActionsProvider myActions = ActionProviderFactory.GetActionProvider();
             string content = await req.Content.ReadAsStringAsync();
             var BodyData = content.GetBodyData<RequestData.UpdateWaterMarkCode>();
-            if (BodyData == null )
+            if (BodyData == null)
             {
                 return req.CreateResponse(HttpStatusCode.BadRequest, BodyData, JsonMediaTypeFormatter.DefaultMediaType);
             }
@@ -157,7 +158,7 @@ namespace WaterMarkingActions
 
                 };
                 myActions.UpdateWaterMarkedRender(data);
-               // var outputData = myActions.UpdateWaterMarkedRender(data);
+                // var outputData = myActions.UpdateWaterMarkedRender(data);
             }
             return req.CreateResponse(HttpStatusCode.OK, new { Status = ExecutionStatus.Finished.ToString() }, JsonMediaTypeFormatter.DefaultMediaType);
         }
@@ -208,43 +209,43 @@ namespace WaterMarkingActions
             try
             {
 
-            
-            //List only Finished without AssetId
-            foreach (var watermarkedInfo in manifest.EmbeddedCodesList)
-            {
-                if ((watermarkedInfo.State == ExecutionStatus.Finished) && (string.IsNullOrEmpty(watermarkedInfo.AssetId)))
+
+                //List only Finished without AssetId
+                foreach (var watermarkedInfo in manifest.EmbeddedCodesList)
                 {
-                    //Create new asset per embbeded code
-                    IAMSProvider help = AMSProviderFactory.CreateAMSProvider();
-                    var xx = await help.CreateEmptyWatermarkedAsset(manifest.JobStatus.JobId, ParentAssetId, watermarkedInfo.EmbeddedCodeValue);
-
-                    watermarkedInfo.AssetId = xx.WMAssetId;
-                    ////Inject all Renders on New asset
-                    foreach (var render in myActions.GetWaterMarkedRenders(ParentAssetId, watermarkedInfo.EmbeddedCodeValue))
+                    if ((watermarkedInfo.State == ExecutionStatus.Finished) && (string.IsNullOrEmpty(watermarkedInfo.AssetId)))
                     {
-                        string url = render.MP4URL;
-                        var r = await help.AddWatermarkedMediaFiletoAsset(watermarkedInfo.AssetId, watermarkedInfo.EmbeddedCodeValue, url);
-                        if (r.Status != "MMRK File Added")
-                        {
-                            //Error
-                            watermarkedInfo.State = ExecutionStatus.Error;
-                            watermarkedInfo.Details = $"Error adding {render.RenderName} details: {r.StatusMessage}";
-                            //Delete Asset
-                            help.DeleteAsset(watermarkedInfo.AssetId);
-                            watermarkedInfo.AssetId = "";
-                            //Abort
-                            break;
-                        }
-                    }
-                    //Create New Manifest and set it as primary file.
-                    await help.GenerateManifest(watermarkedInfo.AssetId);
-                }
-                UpdatedInfo.Add(watermarkedInfo);
-            }
-            //Replace New WaterMarkAssetInfo
-            manifest.EmbeddedCodesList = UpdatedInfo;
+                        //Create new asset per embbeded code
+                        IAMSProvider help = AMSProviderFactory.CreateAMSProvider();
+                        var xx = await help.CreateEmptyWatermarkedAsset(manifest.JobStatus.JobId, ParentAssetId, watermarkedInfo.EmbeddedCodeValue);
 
-            myActions.UpdateUnifiedProcessStatus(manifest);
+                        watermarkedInfo.AssetId = xx.WMAssetId;
+                        ////Inject all Renders on New asset
+                        foreach (var render in myActions.GetWaterMarkedRenders(ParentAssetId, watermarkedInfo.EmbeddedCodeValue))
+                        {
+                            string url = render.MP4URL;
+                            var r = await help.AddWatermarkedMediaFiletoAsset(watermarkedInfo.AssetId, watermarkedInfo.EmbeddedCodeValue, url);
+                            if (r.Status != "MMRK File Added")
+                            {
+                                //Error
+                                watermarkedInfo.State = ExecutionStatus.Error;
+                                watermarkedInfo.Details = $"Error adding {render.RenderName} details: {r.StatusMessage}";
+                                //Delete Asset
+                                help.DeleteAsset(watermarkedInfo.AssetId);
+                                watermarkedInfo.AssetId = "";
+                                //Abort
+                                break;
+                            }
+                        }
+                        //Create New Manifest and set it as primary file.
+                        await help.GenerateManifest(watermarkedInfo.AssetId);
+                    }
+                    UpdatedInfo.Add(watermarkedInfo);
+                }
+                //Replace New WaterMarkAssetInfo
+                manifest.EmbeddedCodesList = UpdatedInfo;
+
+                myActions.UpdateUnifiedProcessStatus(manifest);
             }
             catch (Exception X)
             {
@@ -258,7 +259,7 @@ namespace WaterMarkingActions
         public static async Task<HttpResponseMessage> EvalJobProgress([HttpTrigger(AuthorizationLevel.Function, "post", Route = null)]HttpRequestMessage req, TraceWriter log)
         {
 
-            
+
             string content = await req.Content.ReadAsStringAsync();
             UnifiedProcessStatus myProcessStatus = content.GetBodyData<UnifiedProcessStatus>();
             if (myProcessStatus == null)
@@ -330,7 +331,7 @@ namespace WaterMarkingActions
             IActionsProvider myActions = ActionProviderFactory.GetActionProvider();
             string AssetId = BodyData.AssetId;
             string JobId = BodyData.JobId;
-                      
+
             try
             {
                 var myProcessStatus = myActions.GetUnifiedProcessStatus(AssetId, JobId);
@@ -348,7 +349,7 @@ namespace WaterMarkingActions
             IActionsProvider myActions = ActionProviderFactory.GetActionProvider();
             string content = await req.Content.ReadAsStringAsync();
             ManifestInfo manifest = content.GetBodyData<ManifestInfo>();
-            
+
             int K8SJobAggregation = int.Parse(System.Configuration.ConfigurationManager.AppSettings["K8SJobAggregation"]);
             int K8SJobAggregationOnlyEmb = int.Parse(System.Configuration.ConfigurationManager.AppSettings["K8SJobAggregationOnlyEmb"] ?? "1");
             try
@@ -380,7 +381,7 @@ namespace WaterMarkingActions
         [FunctionName("UpdateJob")]
         public static async Task<HttpResponseMessage> UpdateJob([HttpTrigger(AuthorizationLevel.Function, "post", Route = null)]HttpRequestMessage req, TraceWriter log, ExecutionContext context)
         {
-            
+
             IActionsProvider myActions = ActionProviderFactory.GetActionProvider();
 
             string content = await req.Content.ReadAsStringAsync();
@@ -448,10 +449,10 @@ namespace WaterMarkingActions
 
                 return req.CreateResponse(HttpStatusCode.InternalServerError, X, JsonMediaTypeFormatter.DefaultMediaType);
             }
-           
 
 
-            
+
+
         }
 
         [FunctionName("DeleteSucceededPods")]
@@ -481,7 +482,7 @@ namespace WaterMarkingActions
         [FunctionName("GetK8SProcessLog")]
         public static async Task<HttpResponseMessage> GetK8SProcessLog([HttpTrigger(AuthorizationLevel.Function, "get", Route = null)]HttpRequestMessage req, TraceWriter log, ExecutionContext context)
         {
-            string JobId =  req.GetQueryNameValuePairs().FirstOrDefault(q => string.Compare(q.Key, "JobId", true) == 0).Value;
+            string JobId = req.GetQueryNameValuePairs().FirstOrDefault(q => string.Compare(q.Key, "JobId", true) == 0).Value;
             if (string.IsNullOrEmpty(JobId))
             {
                 return req.CreateResponse(HttpStatusCode.InternalServerError, new { Error = "Parameter JobId is null" }, JsonMediaTypeFormatter.DefaultMediaType);
@@ -492,7 +493,7 @@ namespace WaterMarkingActions
             {
                 string jobName = $"allinone-job-{JobId}";
                 var ResultList = await K8S.GetK8SJobLog(jobName);
-               
+
                 if (ResultList.Count == 0)
                 {
                     //Not Found
@@ -509,7 +510,7 @@ namespace WaterMarkingActions
                 log.Error(X.Message);
                 return req.CreateResponse(HttpStatusCode.InternalServerError, X, JsonMediaTypeFormatter.DefaultMediaType);
             }
-           
+
         }
 
     }
