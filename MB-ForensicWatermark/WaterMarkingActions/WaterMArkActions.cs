@@ -53,7 +53,7 @@ namespace WaterMarkingActions
             string[] EmbeddedCodes = BodyData.EmbeddedCodes;
             if(string.IsNullOrWhiteSpace(JobId) ||
                string.IsNullOrWhiteSpace(AssetId) ||
-               EmbeddedCodes.Length == 0)
+               !EmbeddedCodes.Any())
             {
                 return req.CreateResponse(HttpStatusCode.BadRequest, BodyData, JsonMediaTypeFormatter.DefaultMediaType);
             }
