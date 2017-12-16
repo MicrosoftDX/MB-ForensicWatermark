@@ -80,7 +80,7 @@ namespace WaterMarkingActions
             catch (Exception X)
             {
 
-                return req.CreateResponse(HttpStatusCode.InternalServerError, X, JsonMediaTypeFormatter.DefaultMediaType);
+                return req.CreateResponse(HttpStatusCode.InternalServerError, X.Message, JsonMediaTypeFormatter.DefaultMediaType);
             }
         }
 
