@@ -507,7 +507,7 @@ namespace ActionsProvider
 
             return ymal.Replace("[JOBBASE64]", JOBBASE64);
         }
-        public async Task<K8SResult> SubmiteJobK8S(ManifestInfo manifest, int subId)
+        public async Task<K8SResult> SubmitJobK8S(ManifestInfo manifest, int subId)
         {
             //Create Yamal Job definition
             string manifesttxt = Newtonsoft.Json.JsonConvert.SerializeObject(manifest);
@@ -516,9 +516,9 @@ namespace ActionsProvider
             string jobtxt = GetJobYmal(manifest.JobId + "-" + subId.ToString(), jobbase64, imageName);
             HttpContent ymal = new StringContent(jobtxt, Encoding.UTF8, "application/yaml");
 
-            // Submite JOB
+            // Submit JOB
             IK8SClient k8sClient = K8SClientFactory.Create();
-            var rs = await k8sClient.SubmiteK8SJob(ymal);
+            var rs = await k8sClient.SubmitK8SJob(ymal);
             return rs;
 
         }

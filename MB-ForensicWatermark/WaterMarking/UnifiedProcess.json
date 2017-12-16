@@ -69,7 +69,7 @@
     "Eval_Renders_URL": "[concat('https://',parameters('yourapp'),'.azurewebsites.net/api/','EvalEmbeddedCodes','?code=',parameters('HostKeys'))]",
     "Create_Asset_CopiesURL": "[concat('https://',parameters('yourapp'),'.azurewebsites.net/api/','CreateWaterMArkedAssets','?code=',parameters('HostKeys'))]",
     "Evaluate_Job_StatusURL": "[concat('https://',parameters('yourapp'),'.azurewebsites.net/api/','EvalJobProgress','?code=',parameters('HostKeys'))]",
-    "SubmitK8S_URL": "[concat('https://',parameters('yourapp'),'.azurewebsites.net/api/','SubmiteWaterMarkJob','?code=',parameters('HostKeys'))]",
+    "SubmitK8S_URL": "[concat('https://',parameters('yourapp'),'.azurewebsites.net/api/','SubmitWaterMarkJob','?code=',parameters('HostKeys'))]",
     "Error_Asset_MMRK_URI": "[concat('https://',parameters('yourapp'),'.azurewebsites.net/api/','UpdateJob','?code=',parameters('HostKeys'))]",
     "Delete_Watermarked_Renders_URI": "[concat('https://',parameters('yourapp'),'.azurewebsites.net/api/','DeleteWatermarkedRenders','?code=',parameters('HostKeys'))]",
     "DeleteSucceededPods_URI": "[concat('https://',parameters('yourapp'),'.azurewebsites.net/api/','DeleteSucceededPods','?code=',parameters('HostKeys'))]"
@@ -838,9 +838,9 @@
                             "Manifest": "@body('StatProcessCall')",
                             "AssetStatus": "Error",
                             "JobState": "Error",
-                            "JobStateDetails": "Error Submite K8S JOB",
+                            "JobStateDetails": "Error Submit K8S JOB",
                             "WaterMarkCopiesStatus": "Aborted",
-                            "WaterMarkCopiesStatusDetails": "Error submite JOB K8S"
+                            "WaterMarkCopiesStatusDetails": "Error Submit JOB K8S"
                           },
                           "retryPolicy": {
                             "type": "none"

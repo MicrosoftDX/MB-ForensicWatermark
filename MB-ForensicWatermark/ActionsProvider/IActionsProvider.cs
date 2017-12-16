@@ -29,7 +29,7 @@ namespace ActionsProvider
         UnifiedResponse.WaterMarkedAssetInfo EvalWaterMarkedAssetInfo(string ParentAssetId, string EmbeddedCodeValue);
         void UpdateUnifiedProcessStatus(UnifiedResponse.UnifiedProcessStatus curretnData);
         UnifiedResponse.UnifiedProcessStatus GetUnifiedProcessStatus(string AssetId, string JobId);
-        Task<K8SResult> SubmiteJobK8S(ManifestInfo manifest, int subId);
+        Task<K8SResult> SubmitJobK8S(ManifestInfo manifest, int subId);
         UnifiedResponse.UnifiedProcessStatus UpdateJob(UnifiedResponse.UnifiedProcessStatus currentData, ExecutionStatus AssetState, ExecutionStatus JobState, string JobStateDetails, ExecutionStatus watermarkState, string WaterMarkCopiesStatusDetails);
         List<ManifestInfo> GetK8SManifestInfo(int aggregationLevel, int aggregationLevelOnlyEmb, ManifestInfo manifest);
 

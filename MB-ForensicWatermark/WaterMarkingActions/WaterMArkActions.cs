@@ -148,7 +148,7 @@ namespace WaterMarkingActions
             {
                 WaterMarkedRender data = new WaterMarkedRender()
                 {
-                    Details = "Submited",
+                    Details = "Submitted",
                     EmbeddedCodeValue = myCode.Code,
                     MP4URL = info.WaterMarkedMp4,
                     RenderName = info.FileName,
@@ -157,7 +157,7 @@ namespace WaterMarkingActions
 
                 };
                 myActions.UpdateWaterMarkedRender(data);
-                var outputData = myActions.UpdateWaterMarkedRender(data);
+               // var outputData = myActions.UpdateWaterMarkedRender(data);
             }
             return req.CreateResponse(HttpStatusCode.OK, new { Status = ExecutionStatus.Finished.ToString() }, JsonMediaTypeFormatter.DefaultMediaType);
         }
@@ -342,16 +342,13 @@ namespace WaterMarkingActions
                 return req.CreateResponse(HttpStatusCode.InternalServerError, X, JsonMediaTypeFormatter.DefaultMediaType);
             }
         }
-        [FunctionName("SubmiteWaterMarkJob")]
-        public static async Task<HttpResponseMessage> SubmiteWaterMarkJob([HttpTrigger(AuthorizationLevel.Function, "post", Route = null)]HttpRequestMessage req, TraceWriter log, ExecutionContext context)
+        [FunctionName("SubmitWaterMarkJob")]
+        public static async Task<HttpResponseMessage> SubmitWaterMarkJob([HttpTrigger(AuthorizationLevel.Function, "post", Route = null)]HttpRequestMessage req, TraceWriter log, ExecutionContext context)
         {
             IActionsProvider myActions = ActionProviderFactory.GetActionProvider();
             string content = await req.Content.ReadAsStringAsync();
             ManifestInfo manifest = content.GetBodyData<ManifestInfo>();
-            if (manifest == null)
-            {
-                return req.CreateResponse(HttpStatusCode.BadRequest, manifest, JsonMediaTypeFormatter.DefaultMediaType);
-            }
+            
             int K8SJobAggregation = int.Parse(System.Configuration.ConfigurationManager.AppSettings["K8SJobAggregation"]);
             int K8SJobAggregationOnlyEmb = int.Parse(System.Configuration.ConfigurationManager.AppSettings["K8SJobAggregationOnlyEmb"] ?? "1");
             try
@@ -362,7 +359,7 @@ namespace WaterMarkingActions
                 int jobSubId = 1;
                 foreach (var job in jobList)
                 {
-                    var ret = await myActions.SubmiteJobK8S(job, jobSubId);
+                    var ret = await myActions.SubmitJobK8S(job, jobSubId);
                     log.Info($"{job.VideoInformation.FirstOrDefault().FileName} CODE {ret.Code.ToString()}");
                     jobSubId += 1;
                     if (!ret.IsSuccessStatusCode)
@@ -376,7 +373,7 @@ namespace WaterMarkingActions
             catch (Exception X)
             {
 
-                return req.CreateResponse(HttpStatusCode.InternalServerError, X, JsonMediaTypeFormatter.DefaultMediaType);
+                return req.CreateResponse(HttpStatusCode.InternalServerError, X.Message, JsonMediaTypeFormatter.DefaultMediaType);
             }
 
         }
