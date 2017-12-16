@@ -155,7 +155,7 @@
                 "body": "@body('StatProcessCall')"
               },
               "runAfter": {
-                "CheckJobStaus": [
+                "CheckJobStatus": [
                   "Succeeded"
                 ]
               }
@@ -188,7 +188,7 @@
                 "body": {
                   "AssetId": "@{triggerBody()?['AssetId']}",
                   "JobId": "@{variables('JobId')}",
-                  "EmbededCodes": "@triggerBody()?['EmbeddedCodes']"
+                  "EmbeddedCodes": "@triggerBody()?['EmbeddedCodes']"
                 },
                 "retryPolicy": {
                   "type": "none"
@@ -200,7 +200,7 @@
                 ]
               }
             },
-            "ParseJobStaus": {
+            "ParseJobStatus": {
               "type": "ParseJson",
               "inputs": {
                 "content": "@body('StatProcessCall')",
@@ -364,7 +364,7 @@
                               "items": {
                                 "type": "object",
                                 "properties": {
-                                  "EmbeddedCode": {
+                                  "Code": {
                                     "type": "string"
                                   },
                                   "MP4WatermarkedURL": {
@@ -387,7 +387,7 @@
                                   }
                                 },
                                 "required": [
-                                  "EmbeddedCode",
+                                  "Code",
                                   "MP4WatermarkedURL"
                                 ]
                               }
@@ -429,7 +429,7 @@
                   "actions": {
                     "CheckCreateNewMMRK": {
                       "type": "If",
-                      "expression": "@equals(body('ParseJobStaus')?['AssetStatus']?['State'], 'Running')",
+                      "expression": "@equals(body('ParseJobStatus')?['AssetStatus']?['State'], 'Running')",
                       "actions": {
                         "WaitAsseReady": {
                           "type": "Until",
@@ -562,7 +562,7 @@
                             ]
                           }
                         },
-                        "Create_Embededd_Codes": {
+                        "Create_Embeddedd_Codes": {
                           "type": "Foreach",
                           "foreach": "@body('K8SJobData')?['EmbeddedCodes']",
                           "actions": {
@@ -576,7 +576,7 @@
                                 },
                                 "body": {
                                   "ParentAssetId": "@{triggerBody()?['AssetId']}",
-                                  "EmbeddedCode": "@items('Create_Embededd_Codes')"
+                                  "EmbeddedCode": "@items('Create_Embeddedd_Codes')"
                                 },
                                 "retryPolicy": {
                                   "type": "none"
@@ -639,9 +639,9 @@
                                   "Manifest": "@body('EvalAssetStatus')",
                                   "AssetStatus": "Error",
                                   "JobState": "Error",
-                                  "JobStateDetails": "Fail creating MMKR files",
+                                  "JobStateDetails": "MMKR files creation failed",
                                   "WaterMarkCopiesStatus": "Aborted",
-                                  "WaterMarkCopiesStatusDetails": "Watermark copies aborted becouse MMRK fialed"
+                                  "WaterMarkCopiesStatusDetails": "Watermark copies aborted because MMRK failed"
                                 },
                                 "retryPolicy": {
                                   "type": "none"
@@ -777,7 +777,7 @@
                                 "Content-Type": "application/json"
                               },
                               "body": {
-                                "AssetId": "@{body('ParseJobStaus')?['AssetStatus']?['AssetId']}"
+                                "AssetId": "@{body('ParseJobStatus')?['AssetStatus']?['AssetId']}"
                               },
                               "retryPolicy": {
                                 "type": "none"
@@ -923,12 +923,12 @@
                   {
                     "name": "AssetStatusState",
                     "type": "String",
-                    "value": "@body('ParseJobStaus')?['AssetStatus']?['State']"
+                    "value": "@body('ParseJobStatus')?['AssetStatus']?['State']"
                   }
                 ]
               },
               "runAfter": {
-                "ParseJobStaus": [
+                "ParseJobStatus": [
                   "Succeeded"
                 ]
               }
