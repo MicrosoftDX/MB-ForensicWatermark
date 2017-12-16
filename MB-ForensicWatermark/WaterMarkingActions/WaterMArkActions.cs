@@ -88,7 +88,7 @@ namespace WaterMarkingActions
             if (MMRK.FileURL == "{NO UPDATE}")
             {
                 string jobRender = $"[{MMRK.JobId}]{MMRK.FileName}";
-                var currentMMRKStatus = myActions.GetMMRKStatus(MMRK.AssetID, jobRender);
+                var currentMMRKStatus = myActions.GetMMRKStatus(MMRK.AssetId, jobRender);
                 string url = currentMMRKStatus.FileURL;
                 MMRK.FileURL = url;
             }
@@ -197,35 +197,35 @@ namespace WaterMarkingActions
             {
 
             
-            //List only Finished without AssetID
+            //List only Finished without AssetId
             foreach (var watermarkedInfo in manifest.EmbeddedCodesList)
             {
-                if ((watermarkedInfo.State == ExecutionStatus.Finished) && (string.IsNullOrEmpty(watermarkedInfo.AssetID)))
+                if ((watermarkedInfo.State == ExecutionStatus.Finished) && (string.IsNullOrEmpty(watermarkedInfo.AssetId)))
                 {
                     //Create new asset per embbeded code
                     IAMSProvider help = AMSProviderFactory.CreateAMSProvider();
                     var xx = await help.CreateEmptyWatermarkedAsset(manifest.JobStatus.JobId, ParentAssetId, watermarkedInfo.EmbeddedCodeValue);
 
-                    watermarkedInfo.AssetID = xx.WMAssetId;
+                    watermarkedInfo.AssetId = xx.WMAssetId;
                     ////Inject all Renders on New asset
                     foreach (var render in myActions.GetWaterMarkedRenders(ParentAssetId, watermarkedInfo.EmbeddedCodeValue))
                     {
                         string url = render.MP4URL;
-                        var r = await help.AddWatermarkedMediaFiletoAsset(watermarkedInfo.AssetID, watermarkedInfo.EmbeddedCodeValue, url);
+                        var r = await help.AddWatermarkedMediaFiletoAsset(watermarkedInfo.AssetId, watermarkedInfo.EmbeddedCodeValue, url);
                         if (r.Status != "MMRK File Added")
                         {
                             //Error
                             watermarkedInfo.State = ExecutionStatus.Error;
                             watermarkedInfo.Details = $"Error adding {render.RenderName} details: {r.StatusMessage}";
                             //Delete Asset
-                            help.DeleteAsset(watermarkedInfo.AssetID);
-                            watermarkedInfo.AssetID = "";
+                            help.DeleteAsset(watermarkedInfo.AssetId);
+                            watermarkedInfo.AssetId = "";
                             //Abort
                             break;
                         }
                     }
                     //Create New Manifest and set it as primary file.
-                    await help.GenerateManifest(watermarkedInfo.AssetID);
+                    await help.GenerateManifest(watermarkedInfo.AssetId);
                 }
                 UpdatedInfo.Add(watermarkedInfo);
             }

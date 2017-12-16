@@ -35,7 +35,7 @@ namespace ActionsProvider.Entities
     public class ManifestInfo
     {
         public string JobId { get; set; }
-        public string AssetID { get; set; }
+        public string AssetId { get; set; }
         public string PreprocessorNotificationQueue { get; set; }
         public string EmbedderNotificationQueue { get; set; }
         public List<VideoInformation> VideoInformation { get; set; }

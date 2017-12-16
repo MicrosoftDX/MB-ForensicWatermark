@@ -18,7 +18,7 @@ namespace ActionsProvider
         MMRKStatus UpdateMMRKStatus(MMRKStatus mmrkStatus);
         UnifiedResponse.UnifiedProcessStatus StartNewProcess(string AssetId, string JobId, string[] EmbeddedCodeList);
         MMRKStatus GetMMRKStatus(string AsssetId, string JobRender);
-        List<MMRKStatus> GetMMRKStatusList(string AssetID);
+        List<MMRKStatus> GetMMRKStatusList(string AssetId);
         UnifiedResponse.AssetStatus GetAssetStatus(string AssetId);
         Task<int> EvalPreprocessorNotifications();
         Task<int> EvalPEmbeddedNotifications();

@@ -97,7 +97,7 @@ namespace ActionsProvider.UnifiedResponse
         public string EmbeddedCodeValue { get; set; }
         public ExecutionStatus State { get; set; }
         public string ParentAssetId { get; set; }
-        public string AssetID { get; set; }
+        public string AssetId { get; set; }
         public string Details { get; set; }
     }
     public class TWaterMarkedAssetInfo :TableEntity
@@ -109,14 +109,14 @@ namespace ActionsProvider.UnifiedResponse
             this.PartitionKey = ParentAssetId;
             this.State = Data.State.ToString();
             this.RowKey = Data.EmbeddedCodeValue;
-            this.AssetID = Data.AssetID;
+            this.AssetId = Data.AssetId;
             this.Details = Data.Details;
             this.EmbeddedCode = Data.EmbeddedCodeValue;
         }
         public string Details { get; set; }
         public string EmbeddedCode { get; set; }
         public string State { get; set; }
-        public string AssetID { get; set; }
+        public string AssetId { get; set; }
         public WaterMarkedAssetInfo GetWaterMarkedAsssetInfo()
         {
             return new WaterMarkedAssetInfo()
@@ -124,7 +124,7 @@ namespace ActionsProvider.UnifiedResponse
                 ParentAssetId = PartitionKey,
                 EmbeddedCodeValue = RowKey,
                 State= (ExecutionStatus)Enum.Parse(typeof(ExecutionStatus), this.State),
-                AssetID =AssetID,
+                AssetId =AssetId,
                 Details=Details
             };
         }
@@ -147,7 +147,7 @@ namespace ActionsProvider.UnifiedResponse
             this.Details = $"[{textData.JobId}] {textData.JobOutput}"; 
             this.EmbeddedCodeValue = textData.EmbeddedCode;
             this.MP4URL = MP4URL;
-            this.ParentAssetId = textData.AssetID;
+            this.ParentAssetId = textData.AssetId;
             this.RenderName = textData.FileName;
             this.State = (ExecutionStatus)Enum.Parse(typeof(ExecutionStatus), textData.Status);
             
@@ -192,7 +192,7 @@ namespace ActionsProvider.UnifiedResponse
     public class NotificationEmbedder
     {
         public string JobId { get; set; }
-        public string AssetID { get; set; }
+        public string AssetId { get; set; }
         public string FileName { get; set; }
         public string EmbeddedCode { get; set; }
         public string Status { get; set; }

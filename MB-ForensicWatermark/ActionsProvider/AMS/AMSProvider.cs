@@ -157,7 +157,7 @@ namespace ActionsProvider.AMS
             return accessSignature;
 
         }
-        public async Task<ManifestInfo> GetK8SJobManifestAsync(string AssetID, string JobId, List<string> codes)
+        public async Task<ManifestInfo> GetK8SJobManifestAsync(string AssetId, string JobId, List<string> codes)
         {
             string AssetLocatorPath = "";
             string EmbedderNotificationQueue = await CreateSharedAccessPolicyAsync("embeddernotification", JobId);
@@ -165,7 +165,7 @@ namespace ActionsProvider.AMS
             ManifestInfo myData = new ManifestInfo
             {
                 JobId = JobId,
-                AssetID = AssetID,
+                AssetId = AssetId,
                 EmbedderNotificationQueue = EmbedderNotificationQueue,
                 PreprocessorNotificationQueue = PreprocessorNotificationQueue,
                 //Video information
@@ -185,11 +185,11 @@ namespace ActionsProvider.AMS
             IAsset currentAsset = null;
             try
             {
-                currentAsset = _mediaContext.Assets.Where(a => a.Id == AssetID).FirstOrDefault();
+                currentAsset = _mediaContext.Assets.Where(a => a.Id == AssetId).FirstOrDefault();
             }
             catch (Exception X)
             {
-                throw new Exception($"AssetID {AssetID} not found. Error: {X.Message}");
+                throw new Exception($"AssetId {AssetId} not found. Error: {X.Message}");
             }
 
             var AssetLocator = currentAsset.Locators.Where(l => l.Type == LocatorType.OnDemandOrigin).FirstOrDefault();
@@ -205,7 +205,7 @@ namespace ActionsProvider.AMS
             IEnumerable<IAssetFile> mp4AssetFiles = currentAsset.AssetFiles.ToList().Where(af => af.Name.EndsWith(".mp4", StringComparison.OrdinalIgnoreCase)).OrderBy(f => f.ContentFileSize);
 
 
-            myData = GetManifest5Jobs(myData, /*AssetID*/ currentAsset, mp4AssetFiles, AssetLocatorPath);
+            myData = GetManifest5Jobs(myData, /*AssetId*/ currentAsset, mp4AssetFiles, AssetLocatorPath);
 
 
             return myData;
@@ -276,12 +276,12 @@ namespace ActionsProvider.AMS
             int startIndex = AssetPrefix.Length - 1; // 
             return AssetBlobContainerNamePrefix + AssetId.Substring(startIndex, AssetId.Length - startIndex);
         }
-        IAsset GetMediaAssetFromAssetId(string assetId)
+        IAsset GetMediaAssetFromAssetId(string AssetId)
         {
             // Use a LINQ Select query to get an asset.
             var assetInstance =
                 from a in _mediaContext.Assets
-                where a.Id == assetId
+                where a.Id == AssetId
                 select a;
             // Reference the asset as an IAsset.
             IAsset asset = assetInstance.FirstOrDefault();

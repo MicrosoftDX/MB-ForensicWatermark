@@ -82,7 +82,7 @@ namespace ActionsProvider
             UnifiedResponse.WaterMarkedRender x = null;
             UnifiedResponse.WaterMarkedAssetInfo wai = new UnifiedResponse.WaterMarkedAssetInfo()
             {
-                AssetID = ParentAssetId,
+                AssetId = ParentAssetId,
 
             };
             var myTable = tableClient.GetTableReference(ReferenceNames.WaterMarkedRender);
@@ -107,7 +107,7 @@ namespace ActionsProvider
                 try
                 {
                     NotificationEmbedder rawdata = Newtonsoft.Json.JsonConvert.DeserializeObject<NotificationEmbedder>(message.AsString);
-                    WaterMarkedRender data = GetWaterMarkedRender(rawdata.AssetID, rawdata.EmbeddedCode, rawdata.FileName);
+                    WaterMarkedRender data = GetWaterMarkedRender(rawdata.AssetId, rawdata.EmbeddedCode, rawdata.FileName);
                     string url = data.MP4URL;
                     data = new WaterMarkedRender(rawdata, url);
                     var outputData = UpdateWaterMarkedRender(data);
@@ -323,7 +323,7 @@ namespace ActionsProvider
                         ParentAssetId = AssetId,
                         State = EmbeddedStatus,
                         EmbeddedCodeValue = code,
-                        AssetID = "",
+                        AssetId = "",
                         Details = "Just Start"
                     });
             }
@@ -374,10 +374,10 @@ namespace ActionsProvider
             }
             return myData;
         }
-        public List<MMRKStatus> GetMMRKStatusList(string AssetID)
+        public List<MMRKStatus> GetMMRKStatusList(string AssetId)
         {
             List<MMRKStatus> ret = new List<MMRKStatus>();
-            TableQuery<TMMRKStatus> query = new TableQuery<TMMRKStatus>().Where(TableQuery.GenerateFilterCondition("PartitionKey", QueryComparisons.Equal, AssetID));
+            TableQuery<TMMRKStatus> query = new TableQuery<TMMRKStatus>().Where(TableQuery.GenerateFilterCondition("PartitionKey", QueryComparisons.Equal, AssetId));
             var mmrkList = _MMRKSttausTable.ExecuteQuery(query);
             foreach (var item in mmrkList)
             {
@@ -467,7 +467,7 @@ namespace ActionsProvider
                     var jNotification = Newtonsoft.Json.Linq.JObject.Parse(message.AsString);
                     // Retrive 
                     string jobRender = $"[{(string)jNotification["JobId"]}]{(string)jNotification["FileName"]}";
-                    var MMRK = GetMMRKStatus((string)jNotification["AssetID"], jobRender);
+                    var MMRK = GetMMRKStatus((string)jNotification["AssetId"], jobRender);
                     //Update MMRK Status
                     MMRK.Details = (string)jNotification["JobOutput"];
                     MMRK.State = (ExecutionStatus)Enum.Parse(typeof(ExecutionStatus), (string)jNotification["Status"]);
@@ -526,7 +526,7 @@ namespace ActionsProvider
         {
             ManifestInfo aggregateJobManifest = new ManifestInfo()
             {
-                AssetID = manifest.AssetID,
+                AssetId = manifest.AssetId,
                 EmbedderNotificationQueue = manifest.EmbedderNotificationQueue,
                 EmbeddedCodes = new List<EmbeddedCode>(),
                 JobId = manifest.JobId,

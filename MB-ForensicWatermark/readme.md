@@ -116,7 +116,7 @@ As response you will receive JOB status information.
             "EmbeddedCodeValue": "0x1ADE29",
             "State": "Running",
             "ParentAssetId": "nb:cid:UUID:ecda4e79-f800-44de-9fd5-562de140c7c7",
-            "AssetID": "",
+            "AssetId": "",
             "Details": "Just Start"
         }
     ]

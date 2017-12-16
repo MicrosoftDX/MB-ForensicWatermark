@@ -31,7 +31,7 @@ namespace ActionsProvider.Entities
         { }
         public TMMRKStatus(MMRKStatus data)
         {
-            this.PartitionKey = data.AssetID;
+            this.PartitionKey = data.AssetId;
             //this.RowKey =$"[{data.JobId}]{data.FileName}";
             this.RowKey = $"[{data.JobId}]{data.FileName}";
             FileName = data.FileName;
@@ -45,7 +45,7 @@ namespace ActionsProvider.Entities
         {
             return new MMRKStatus
             {
-                AssetID = PartitionKey,
+                AssetId = PartitionKey,
                 JobId = JobId,
                 FileName = FileName,
                 Details = Details,
@@ -57,7 +57,7 @@ namespace ActionsProvider.Entities
     public class MMRKStatus
     {
         public string JobId { get; set; }
-        public string AssetID { get; set; }
+        public string AssetId { get; set; }
         public string FileName { get; set; }
         public ExecutionStatus State { get; set; }
         public string Details { get; set; }
