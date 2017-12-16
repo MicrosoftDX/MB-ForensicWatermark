@@ -51,6 +51,12 @@ namespace WaterMarkingActions
             string AssetId = BodyData.AssetId;
             string JobId = BodyData.JobId;
             string[] EmbeddedCodes = BodyData.EmbeddedCodes;
+            if(string.IsNullOrWhiteSpace(JobId) ||
+               string.IsNullOrWhiteSpace(AssetId) ||
+               EmbeddedCodes.Length == 0)
+            {
+                return req.CreateResponse(HttpStatusCode.BadRequest, BodyData, JsonMediaTypeFormatter.DefaultMediaType);
+            }
             //Save Status
             IActionsProvider myActions = ActionProviderFactory.GetActionProvider();
             var status = myActions.StartNewProcess(AssetId, JobId, EmbeddedCodes);
