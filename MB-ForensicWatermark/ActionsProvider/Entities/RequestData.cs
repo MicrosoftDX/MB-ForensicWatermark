@@ -29,7 +29,7 @@ namespace ActionsProvider.Entities
         }
         public class GetPreprocessorJobData: BaseStatusData
         {
-            public List<string> Codes { get; set; }
+            public List<string> EmbeddedCodes { get; set; }
         }
         public class UpdateWaterMarkCode
         {

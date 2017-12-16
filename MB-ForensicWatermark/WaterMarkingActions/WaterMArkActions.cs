@@ -22,6 +22,12 @@ namespace WaterMarkingActions
 {
     public static class WaterMarkActions
     {
+        /// <summary>
+        /// Check the status of an asset
+        /// </summary>
+        /// <param name="req"></param>
+        /// <param name="log"></param>
+        /// <returns></returns>
         [FunctionName("CheckAssetStatus")]
         public static async Task<HttpResponseMessage> CheckAssetStatus([HttpTrigger(AuthorizationLevel.Function, "post", Route = null)]HttpRequestMessage req, TraceWriter log)
         {
@@ -58,7 +64,7 @@ namespace WaterMarkingActions
             var BodyData = content.GetBodyData<RequestData.GetPreprocessorJobData>();
             string AssetId = BodyData.AssetId;
             string JobId = BodyData.JobId;
-            List<string> codes = BodyData.Codes;
+            List<string> codes = BodyData.EmbeddedCodes;
             IAMSProvider myAMS = AMSProviderFactory.CreateAMSProvider();
             try
             {
