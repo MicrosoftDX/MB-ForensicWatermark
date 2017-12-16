@@ -237,7 +237,7 @@ namespace ActionsProvider.K8S
             r.Content = Newtonsoft.Json.JsonConvert.SerializeObject(deleteLog);
             return r;
         }
-        public async Task<K8SResult> SubmiteK8SJob(HttpContent yamalJob)
+        public async Task<K8SResult> SubmitK8SJob(HttpContent yamalJob)
         {
             K8SResult r = new K8SResult();
             var rs = await CallK8SPostAsync(yamalJob, K8SURLTOKEN, CREATEJOBAPIPATH);

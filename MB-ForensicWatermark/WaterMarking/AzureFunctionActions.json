@@ -38,6 +38,19 @@
         "description": "Azure Media Services Storage connection string"
       }
     },
+
+    "WatermarkedStorageConn": {
+      "type": "string",
+      "metadata": {
+        "description": "Watermarked Azure Media Services Storage connection string"
+      }
+    },
+    "WatermarkedStorageName": {
+      "type": "string",
+      "metadata": {
+        "description": "Watermarked Azure Media Services Storage connection name"
+      }
+    },
     "K8SURL": {
       "type": "string",
       "metadata": {
@@ -72,7 +85,7 @@
     }
   },
   "variables": {
-
+    "PUBLISHWATERKEDCOPY": "false",
     "branch": "master",
     "KeepWatermakedBlobs": "false",
     "gopsize": "3",
@@ -172,6 +185,14 @@
               "value": "[parameters('AMSStorageConStr')]"
             },
             {
+              "name": "WatermarkedStorageConn",
+              "value": "[parameters('WatermarkedStorageConn')]"
+            },
+            {
+              "name": "WatermarkedStorageName",
+              "value": "[parameters('WatermarkedStorageName')]"
+            },
+            {
               "name": "K8SURL",
               "value": "[parameters('K8SURL')]"
             },
@@ -194,6 +215,14 @@
             {
               "name": "KeepWatermakedBlobs",
               "value": "[variables('KeepWatermakedBlobs')]"
+            },
+            {
+              "name": "PUBLISHWATERKEDCOPY",
+              "value": "[variables('PUBLISHWATERKEDCOPY')]"
+            },
+            {
+              "name": "K8SJobAggregationOnlyEmb",
+              "value": "[variables('K8SJobAggregationOnlyEmb')]"
             },
             {
               "name": "K8SJobAggregationOnlyEmb",

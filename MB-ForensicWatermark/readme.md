@@ -74,7 +74,7 @@ After you finish deployment process you will have on the same resource group
 4. UnifiedProcess Logic App
 
 
-So, to test **UnifiedProcess** you need to execute a POST CALL to CallBack URL specifying **AssetId** of original Assset and **EmbebedCodes** list. Each code on the list will produce a new Asset copy on AMS.
+So, to test **UnifiedProcess** you need to execute a POST CALL to CallBack URL specifying **AssetId** of original Assset and **EmbeddedCodes** list. Each code on the list will produce a new Asset copy on AMS.
 
 ```json
 POST /workflows/[** your workflowwid here ***]/triggers/manual/paths/invoke?api-version=2016-06-01&amp;sp=%2Ftriggers%2Fmanual%2Frun&amp;sv=1.0&amp;sig=[** your sig **] HTTP/1.1
@@ -85,7 +85,7 @@ Postman-Token: abd40c58-d30d-c34c-6165-08161868e0de
 
 {
   "AssetId": "nb:cid:UUID:ecda4e79-f800-44de-9fd5-562de140c7c7",
-  "EmbebedCodes": 
+  "EmbeddedCodes": 
     [
     	"0x1ADE29"
     ]
@@ -101,29 +101,29 @@ As response you will receive JOB status information.
         "State": "Running"
     },
     "JobStatus": {
-        "JobID": "08586993026535557503409978660",
+        "JobId": "08586993026535557503409978660",
         "State": "Running",
         "Details": "Queue",
         "StartTime": "2017-08-09T18:43:54.0835878+00:00",
         "FinishTime": null,
         "Duration": null,
-        "EmbebedCodeList": [
+        "EmbeddedCodeList": [
             "0x1ADE29"
         ]
     },
-    "EmbebedCodesList": [
+    "EmbeddedCodesList": [
         {
-            "EmbebedCodeValue": "0x1ADE29",
+            "EmbeddedCodeValue": "0x1ADE29",
             "State": "Running",
-            "ParentAssetID": "nb:cid:UUID:ecda4e79-f800-44de-9fd5-562de140c7c7",
-            "AssetID": "",
+            "ParentAssetId": "nb:cid:UUID:ecda4e79-f800-44de-9fd5-562de140c7c7",
+            "AssetId": "",
             "Details": "Just Start"
         }
     ]
 }
 ```
 
-After you trigger the JOB, you could check JOB status calling Azure Function **GetUnifiedProcessStatus** endpoint using same **AssetId** and **JobID** from preview response.
+After you trigger the JOB, you could check JOB status calling Azure Function **GetUnifiedProcessStatus** endpoint using same **AssetId** and **JobId** from preview response.
 ```json
 POST /api/GetUnifiedProcessStatus?code=[** your code here **] HTTP/1.1
 Host: [*** your HOST HERE ***]
@@ -133,6 +133,6 @@ Postman-Token: b9994858-53f0-c98d-02a0-370059a56a03
 
 {
 	"AssetId": "nb:cid:UUID:ecda4e79-f800-44de-9fd5-562de140c7c7",
-	"JobID": "08586993026535557503409978660"
+	"JobId": "08586993026535557503409978660"
 }
 ```

@@ -13,7 +13,7 @@
     },
     "logicAppLocation": {
       "type": "string",
-      "defaultValue": "[resourceGroup().location]",
+      "defaultValue": "westeurope",
       "allowedValues": [
         "eastasia",
         "southeastasia",
@@ -66,10 +66,10 @@
     "GetPreprocessorJobData": "[concat('https://',parameters('yourapp'),'.azurewebsites.net/api/','GetPreprocessorJobData','?code=',parameters('HostKeys'))]",
     "EvalAssetStatusURL": "[concat('https://',parameters('yourapp'),'.azurewebsites.net/api/','EvalAssetStatus','?code=',parameters('HostKeys'))]",
     "UpdateWaterMarkCodeURL": "[concat('https://',parameters('yourapp'),'.azurewebsites.net/api/','UpdateWaterMarkCode','?code=',parameters('HostKeys'))]",
-    "Eval_Renders_URL": "[concat('https://',parameters('yourapp'),'.azurewebsites.net/api/','EvalEnbebedCodes','?code=',parameters('HostKeys'))]",
+    "Eval_Renders_URL": "[concat('https://',parameters('yourapp'),'.azurewebsites.net/api/','EvalEmbeddedCodes','?code=',parameters('HostKeys'))]",
     "Create_Asset_CopiesURL": "[concat('https://',parameters('yourapp'),'.azurewebsites.net/api/','CreateWaterMArkedAssets','?code=',parameters('HostKeys'))]",
-    "Evaluate_Job_StausURL": "[concat('https://',parameters('yourapp'),'.azurewebsites.net/api/','EvalJobProgress','?code=',parameters('HostKeys'))]",
-    "SubmitK8S_URL": "[concat('https://',parameters('yourapp'),'.azurewebsites.net/api/','SubmiteWaterMarkJob','?code=',parameters('HostKeys'))]",
+    "Evaluate_Job_StatusURL": "[concat('https://',parameters('yourapp'),'.azurewebsites.net/api/','EvalJobProgress','?code=',parameters('HostKeys'))]",
+    "SubmitK8S_URL": "[concat('https://',parameters('yourapp'),'.azurewebsites.net/api/','SubmitWaterMarkJob','?code=',parameters('HostKeys'))]",
     "Error_Asset_MMRK_URI": "[concat('https://',parameters('yourapp'),'.azurewebsites.net/api/','UpdateJob','?code=',parameters('HostKeys'))]",
     "Delete_Watermarked_Renders_URI": "[concat('https://',parameters('yourapp'),'.azurewebsites.net/api/','DeleteWatermarkedRenders','?code=',parameters('HostKeys'))]",
     "DeleteSucceededPods_URI": "[concat('https://',parameters('yourapp'),'.azurewebsites.net/api/','DeleteSucceededPods','?code=',parameters('HostKeys'))]"
@@ -87,12 +87,12 @@
         "definition": {
           "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
           "actions": {
-            "SetJobID": {
+            "SetJobId": {
               "type": "InitializeVariable",
               "inputs": {
                 "variables": [
                   {
-                    "name": "JobID",
+                    "name": "JobId",
                     "type": "String",
                     "value": "@{workflow()['run']['name']}"
                   }
@@ -100,7 +100,7 @@
               },
               "runAfter": {}
             },
-            "SetSwitchChec": {
+            "SetSwitchCheck": {
               "type": "InitializeVariable",
               "inputs": {
                 "variables": [
@@ -112,19 +112,19 @@
                 ]
               },
               "runAfter": {
-                "SetJobID": [
+                "SetJobId": [
                   "Succeeded"
                 ]
               }
             },
-            "CheckJobStaus": {
+            "CheckJobStatus": {
               "type": "If",
-              "expression": "@equals(body('ParseJobStaus')?['JobStatus']?['State'], 'Running')",
+              "expression": "@equals(body('ParseJobStatus')?['JobStatus']?['State'], 'Running')",
               "actions": {
                 "Resonsw200": {
                   "type": "SetVariable",
                   "inputs": {
-                    "name": "ResponeCode",
+                    "name": "ResponseCode",
                     "value": 200
                   },
                   "runAfter": {}
@@ -140,7 +140,7 @@
                   "Response409": {
                     "type": "SetVariable",
                     "inputs": {
-                      "name": "ResponeCode",
+                      "name": "ResponseCode",
                       "value": 409
                     },
                     "runAfter": {}
@@ -151,11 +151,11 @@
             "Response": {
               "type": "Response",
               "inputs": {
-                "statusCode": "@variables('ResponeCode')",
-                "body": "@body('StatProcessCAll')"
+                "statusCode": "@variables('ResponseCode')",
+                "body": "@body('StatProcessCall')"
               },
               "runAfter": {
-                "CheckJobStaus": [
+                "CheckJobStatus": [
                   "Succeeded"
                 ]
               }
@@ -165,19 +165,19 @@
               "inputs": {
                 "variables": [
                   {
-                    "name": "ResponeCode",
+                    "name": "ResponseCode",
                     "type": "Integer",
                     "value": 200
                   }
                 ]
               },
               "runAfter": {
-                "SetSwitchChec": [
+                "SetSwitchCheck": [
                   "Succeeded"
                 ]
               }
             },
-            "StatProcessCAll": {
+            "StatProcessCall": {
               "type": "Http",
               "inputs": {
                 "method": "POST",
@@ -186,9 +186,9 @@
                   "Content-Type": "application/json"
                 },
                 "body": {
-                  "AssetID": "@{triggerBody()?['AssetId']}",
-                  "JobID": "@{variables('JobID')}",
-                  "EmbebedCodes": "@triggerBody()?['EmbebedCodes']"
+                  "AssetId": "@{triggerBody()?['AssetId']}",
+                  "JobId": "@{variables('JobId')}",
+                  "EmbeddedCodes": "@triggerBody()?['EmbeddedCodes']"
                 },
                 "retryPolicy": {
                   "type": "none"
@@ -200,10 +200,10 @@
                 ]
               }
             },
-            "ParseJobStaus": {
+            "ParseJobStatus": {
               "type": "ParseJson",
               "inputs": {
-                "content": "@body('StatProcessCAll')",
+                "content": "@body('StatProcessCall')",
                 "schema": {
                   "type": "object",
                   "properties": {
@@ -221,7 +221,7 @@
                     "JobStatus": {
                       "type": "object",
                       "properties": {
-                        "JobID": {
+                        "JobId": {
                           "type": "string"
                         },
                         "State": {
@@ -241,21 +241,21 @@
                         }
                       }
                     },
-                    "EmbebedCodesList": {
+                    "EmbeddedCodesList": {
                       "type": "array",
                       "items": {
                         "type": "object",
                         "properties": {
-                          "EmbebedCodeValue": {
+                          "EmbeddedCodeValue": {
                             "type": "string"
                           },
                           "State": {
                             "type": "string"
                           },
-                          "ParentAssetID": {
+                          "ParentAssetId": {
                             "type": "string"
                           },
-                          "AssetID": {
+                          "AssetId": {
                             "type": "any"
                           },
                           "Details": {
@@ -263,10 +263,10 @@
                           }
                         },
                         "required": [
-                          "EmbebedCodeValue",
+                          "EmbeddedCodeValue",
                           "State",
-                          "ParentAssetID",
-                          "AssetID",
+                          "ParentAssetId",
+                          "AssetId",
                           "Details"
                         ]
                       }
@@ -275,14 +275,14 @@
                 }
               },
               "runAfter": {
-                "Initialize_CurrentManifest": [
+                "Initialize_CurrentManifestt": [
                   "Succeeded"
                 ]
               }
             },
             "CheckProcessStart": {
               "type": "If",
-              "expression": "@equals(variables('ResponeCode'), 200)",
+              "expression": "@equals(variables('ResponseCode'), 200)",
               "actions": {
                 "GetJobSubmitData": {
                   "type": "Http",
@@ -294,8 +294,8 @@
                     },
                     "body": {
                       "AssetId": "@{triggerBody()?['AssetId']}",
-                      "JobID": "@{variables('JobID')}",
-                      "Codes": "@triggerBody()?['EmbebedCodes']"
+                      "JobId": "@{variables('JobId')}",
+                      "Codes": "@triggerBody()?['EmbeddedCodes']"
                     },
                     "retryPolicy": {
                       "type": "none"
@@ -313,10 +313,10 @@
                         "schema": {
                           "type": "object",
                           "properties": {
-                            "JobID": {
+                            "JobId": {
                               "type": "string"
                             },
-                            "AssetID": {
+                            "AssetId": {
                               "type": "string"
                             },
                             "PreprocessorNotificationQueue": {
@@ -359,12 +359,12 @@
                                 ]
                               }
                             },
-                            "EnbebedCodes": {
+                            "EmbeddedCodes": {
                               "type": "array",
                               "items": {
                                 "type": "object",
                                 "properties": {
-                                  "EmbebedCode": {
+                                  "Code": {
                                     "type": "string"
                                   },
                                   "MP4WatermarkedURL": {
@@ -387,7 +387,7 @@
                                   }
                                 },
                                 "required": [
-                                  "EmbebedCode",
+                                  "Code",
                                   "MP4WatermarkedURL"
                                 ]
                               }
@@ -429,7 +429,7 @@
                   "actions": {
                     "CheckCreateNewMMRK": {
                       "type": "If",
-                      "expression": "@equals(body('ParseJobStaus')?['AssetStatus']?['State'], 'Running')",
+                      "expression": "@equals(body('ParseJobStatus')?['AssetStatus']?['State'], 'Running')",
                       "actions": {
                         "WaitAsseReady": {
                           "type": "Until",
@@ -447,7 +447,7 @@
                                 "headers": {
                                   "Content-Type": "application/json"
                                 },
-                                "body": "@variables('CurrentManifes')"
+                                "body": "@variables('CurrentManifest')"
                               },
                               "runAfter": {}
                             },
@@ -492,7 +492,7 @@
                             "Update_Current_Manifest_Asset_Status": {
                               "type": "SetVariable",
                               "inputs": {
-                                "name": "CurrentManifes",
+                                "name": "CurrentManifest",
                                 "value": "@{body('Update_JOB_Staus_bseon_Asset_Status')}"
                               },
                               "runAfter": {
@@ -505,7 +505,7 @@
                               "type": "Http",
                               "inputs": {
                                 "method": "POST",
-                                "uri": "[variables('Evaluate_Job_StausURL')]",
+                                "uri": "[variables('Evaluate_Job_StatusURL')]",
                                 "headers": {
                                   "Content-Type": "application/json"
                                 },
@@ -545,8 +545,8 @@
                                   "Content-Type": "application/json"
                                 },
                                 "body": {
-                                  "JobID": "@{variables('JobID')}",
-                                  "AssetID": "@{body('K8SJobData')?['AssetID']}",
+                                  "JobId": "@{variables('JobId')}",
+                                  "AssetId": "@{body('K8SJobData')?['AssetId']}",
                                   "FileName": "@{items('CreateAssetMMRKEntry')?['FileName']}",
                                   "State": "Running",
                                   "Details": "Just sumbited",
@@ -562,9 +562,9 @@
                             ]
                           }
                         },
-                        "Create_Embededd_Codes": {
+                        "Create_Embeddedd_Codes": {
                           "type": "Foreach",
-                          "foreach": "@body('K8SJobData')?['EnbebedCodes']",
+                          "foreach": "@body('K8SJobData')?['EmbeddedCodes']",
                           "actions": {
                             "Create_Watermark_Code": {
                               "type": "Http",
@@ -575,8 +575,8 @@
                                   "Content-Type": "application/json"
                                 },
                                 "body": {
-                                  "ParentAssetID": "@{triggerBody()?['AssetId']}",
-                                  "EnbebedCode": "@items('Create_Embededd_Codes')"
+                                  "ParentAssetId": "@{triggerBody()?['AssetId']}",
+                                  "EmbeddedCode": "@items('Create_Embeddedd_Codes')"
                                 },
                                 "retryPolicy": {
                                   "type": "none"
@@ -597,7 +597,7 @@
                         "actions": {
                           "Create_Embedded_Code_on_MMRK_finished": {
                             "type": "Foreach",
-                            "foreach": "@body('K8SJobData')?['EnbebedCodes']",
+                            "foreach": "@body('K8SJobData')?['EmbeddedCodes']",
                             "actions": {
                               "Create_Embedded_Registers": {
                                 "type": "Http",
@@ -608,8 +608,8 @@
                                     "Content-Type": "application/json"
                                   },
                                   "body": {
-                                    "ParentAssetID": "@{triggerBody()?['AssetId']}",
-                                    "EnbebedCode": "@items('Create_Embedded_Code_on_MMRK_finished')"
+                                    "ParentAssetId": "@{triggerBody()?['AssetId']}",
+                                    "EmbeddedCode": "@items('Create_Embedded_Code_on_MMRK_finished')"
                                   }
                                 },
                                 "runAfter": {}
@@ -639,9 +639,9 @@
                                   "Manifest": "@body('EvalAssetStatus')",
                                   "AssetStatus": "Error",
                                   "JobState": "Error",
-                                  "JobStateDetails": "Fail creating MMKR files",
+                                  "JobStateDetails": "MMKR files creation failed",
                                   "WaterMarkCopiesStatus": "Aborted",
-                                  "WaterMarkCopiesStatusDetails": "Watermark copies aborted becouse MMRK fialed"
+                                  "WaterMarkCopiesStatusDetails": "Watermark copies aborted because MMRK failed"
                                 },
                                 "retryPolicy": {
                                   "type": "none"
@@ -670,7 +670,7 @@
                                   "headers": {
                                     "Content-Type": "application/json"
                                   },
-                                  "body": "@variables('CurrentManifes')",
+                                  "body": "@variables('CurrentManifest')",
                                   "retryPolicy": {
                                     "type": "none"
                                   }
@@ -696,11 +696,11 @@
                                   ]
                                 }
                               },
-                              "Evaluate_Job_Staus": {
+                              "Evaluate_Job_Status": {
                                 "type": "Http",
                                 "inputs": {
                                   "method": "POST",
-                                  "uri": "[variables('Evaluate_Job_StausURL')]",
+                                  "uri": "[variables('Evaluate_Job_StatusURL')]",
                                   "headers": {
                                     "Content-Type": "application/json"
                                   },
@@ -718,11 +718,11 @@
                               "Update_Manifest": {
                                 "type": "SetVariable",
                                 "inputs": {
-                                  "name": "CurrentManifes",
-                                  "value": "@{body('Evaluate_Job_Staus')}"
+                                  "name": "CurrentManifest",
+                                  "value": "@{body('Evaluate_Job_Status')}"
                                 },
                                 "runAfter": {
-                                  "Evaluate_Job_Staus": [
+                                  "Evaluate_Job_Status": [
                                     "Succeeded"
                                   ]
                                 }
@@ -731,7 +731,7 @@
                                 "type": "SetVariable",
                                 "inputs": {
                                   "name": "switchCheck",
-                                  "value": "@equals(body('Evaluate_Job_Staus')?['JobStatus']?['State'], 'Running')"
+                                  "value": "@equals(body('Evaluate_Job_Status')?['JobStatus']?['State'], 'Running')"
                                 },
                                 "runAfter": {
                                   "Update_Manifest": [
@@ -739,7 +739,7 @@
                                   ]
                                 }
                               },
-                              "Delay_for_Check_Job_Staus": {
+                              "Delay_for_Check_Job_Status": {
                                 "type": "Wait",
                                 "inputs": {
                                   "interval": {
@@ -755,12 +755,12 @@
                               }
                             },
                             "runAfter": {
-                              "Set_Switch_Waait_For_Renders": [
+                              "Set_Switch_Wait_For_Renders": [
                                 "Succeeded"
                               ]
                             }
                           },
-                          "Set_Switch_Waait_For_Renders": {
+                          "Set_Switch_Wait_For_Renders": {
                             "type": "SetVariable",
                             "inputs": {
                               "name": "switchCheck",
@@ -777,7 +777,7 @@
                                 "Content-Type": "application/json"
                               },
                               "body": {
-                                "AssetId": "@{body('ParseJobStaus')?['AssetStatus']?['AssetId']}"
+                                "AssetId": "@{body('ParseJobStatus')?['AssetStatus']?['AssetId']}"
                               },
                               "retryPolicy": {
                                 "type": "none"
@@ -798,7 +798,7 @@
                                 "Content-Type": "application/json"
                               },
                               "body": {
-                                "JobId": "@{variables('JobID')}"
+                                "JobId": "@{variables('JobId')}"
                               },
                               "retryPolicy": {
                                 "type": "none"
@@ -835,12 +835,12 @@
                             "Content-Type": "application/json"
                           },
                           "body": {
-                            "Manifest": "@body('StatProcessCAll')",
+                            "Manifest": "@body('StatProcessCall')",
                             "AssetStatus": "Error",
                             "JobState": "Error",
-                            "JobStateDetails": "Error Submite K8S JOB",
+                            "JobStateDetails": "Error Submit K8S JOB",
                             "WaterMarkCopiesStatus": "Aborted",
-                            "WaterMarkCopiesStatusDetails": "Error submite JOB K8S"
+                            "WaterMarkCopiesStatusDetails": "Error Submit JOB K8S"
                           },
                           "retryPolicy": {
                             "type": "none"
@@ -863,7 +863,7 @@
                           "Content-Type": "application/json"
                         },
                         "body": {
-                          "Manifest": "@body('StatProcessCAll')",
+                          "Manifest": "@body('StatProcessCall')",
                           "AssetStatus": "Error",
                           "JobState": "Error",
                           "JobStateDetails": "Error on Get Sumit Job Data",
@@ -892,7 +892,7 @@
                       "Content-Type": "application/json"
                     },
                     "body": {
-                      "Manifest": "@body('StatProcessCAll')",
+                      "Manifest": "@body('StatProcessCall')",
                       "AssetStatus": "Error",
                       "JobState": "Error",
                       "JobStateDetails": "K8S submit error :@{body('SubmitK8S')}",
@@ -923,29 +923,29 @@
                   {
                     "name": "AssetStatusState",
                     "type": "String",
-                    "value": "@body('ParseJobStaus')?['AssetStatus']?['State']"
+                    "value": "@body('ParseJobStatus')?['AssetStatus']?['State']"
                   }
                 ]
               },
               "runAfter": {
-                "ParseJobStaus": [
+                "ParseJobStatus": [
                   "Succeeded"
                 ]
               }
             },
-            "Initialize_CurrentManifest": {
+            "Initialize_CurrentManifestt": {
               "type": "InitializeVariable",
               "inputs": {
                 "variables": [
                   {
-                    "name": "CurrentManifes",
+                    "name": "CurrentManifest",
                     "type": "String",
-                    "value": "@{body('StatProcessCAll')}"
+                    "value": "@{body('StatProcessCall')}"
                   }
                 ]
               },
               "runAfter": {
-                "StatProcessCAll": [
+                "StatProcessCall": [
                   "Succeeded"
                 ]
               }
@@ -963,7 +963,7 @@
                     "AssetId": {
                       "type": "string"
                     },
-                    "EmbebedCodes": {
+                    "EmbeddedCodes": {
                       "type": "array",
                       "items": {
                         "type": "string"

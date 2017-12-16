@@ -75,8 +75,8 @@
     <Reference Include="Microsoft.WindowsAzure.MediaServices.Client.Common.FileEncryption, Version=4.1.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
       <HintPath>..\packages\windowsazure.mediaservices.4.1.0.1\lib\net45\Microsoft.WindowsAzure.MediaServices.Client.Common.FileEncryption.dll</HintPath>
     </Reference>
-    <Reference Include="Microsoft.WindowsAzure.Storage, Version=8.6.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
-      <HintPath>..\packages\WindowsAzure.Storage.8.6.0\lib\net45\Microsoft.WindowsAzure.Storage.dll</HintPath>
+    <Reference Include="Microsoft.WindowsAzure.Storage, Version=8.7.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>..\packages\WindowsAzure.Storage.8.7.0\lib\net45\Microsoft.WindowsAzure.Storage.dll</HintPath>
     </Reference>
     <Reference Include="Newtonsoft.Json, Version=9.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
       <HintPath>..\packages\Newtonsoft.Json.9.0.1\lib\net45\Newtonsoft.Json.dll</HintPath>
@@ -131,8 +131,10 @@
     <Compile Include="AMS\IAMSProvider.cs" />
     <Compile Include="Entities\JobSubmitData.cs" />
     <Compile Include="Entities\MMRKStatus.cs" />
+    <Compile Include="Entities\RequestData.cs" />
     <Compile Include="Entities\UnifiedResponse.cs" />
     <Compile Include="Entities\WMAssetOutputMessage.cs" />
+    <Compile Include="Extensions.cs" />
     <Compile Include="IActionsProvider.cs" />
     <Compile Include="K8S\IK8SClient.cs" />
     <Compile Include="K8S\K8SClient.cs" />

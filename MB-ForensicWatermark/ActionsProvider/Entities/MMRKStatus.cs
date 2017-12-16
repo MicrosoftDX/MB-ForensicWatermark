@@ -24,19 +24,19 @@ namespace ActionsProvider.Entities
        
         public string FileName { get; set; }
         public string Details { get; set; }
-        public string JobID { get; set; }
+        public string JobId { get; set; }
         public string FileURL { get; set; }
 
         public TMMRKStatus()
         { }
         public TMMRKStatus(MMRKStatus data)
         {
-            this.PartitionKey = data.AssetID;
-            //this.RowKey =$"[{data.JobID}]{data.FileName}";
-            this.RowKey = $"[{data.JobID}]{data.FileName}";
+            this.PartitionKey = data.AssetId;
+            //this.RowKey =$"[{data.JobId}]{data.FileName}";
+            this.RowKey = $"[{data.JobId}]{data.FileName}";
             FileName = data.FileName;
             State = data.State.ToString();
-            JobID = data.JobID;
+            JobId = data.JobId;
             Details = data.Details;
             FileURL = data.FileURL;
         }
@@ -45,8 +45,8 @@ namespace ActionsProvider.Entities
         {
             return new MMRKStatus
             {
-                AssetID = PartitionKey,
-                JobID = JobID,
+                AssetId = PartitionKey,
+                JobId = JobId,
                 FileName = FileName,
                 Details = Details,
                 FileURL = FileURL,
@@ -56,8 +56,8 @@ namespace ActionsProvider.Entities
     }
     public class MMRKStatus
     {
-        public string JobID { get; set; }
-        public string AssetID { get; set; }
+        public string JobId { get; set; }
+        public string AssetId { get; set; }
         public string FileName { get; set; }
         public ExecutionStatus State { get; set; }
         public string Details { get; set; }

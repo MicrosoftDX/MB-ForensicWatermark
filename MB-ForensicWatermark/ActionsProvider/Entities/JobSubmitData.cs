@@ -26,20 +26,20 @@ namespace ActionsProvider.Entities
         public string WaterMarkedMp4 { get; set; }
     }
 
-    public class EnbebedCode
+    public class EmbeddedCode
     {
-        public string EmbebedCode { get; set; }
+        public string Code { get; set; }
         public List<MP4WatermarkedURL> MP4WatermarkedURL { get; set; }
     }
 
     public class ManifestInfo
     {
-        public string JobID { get; set; }
-        public string AssetID { get; set; }
+        public string JobId { get; set; }
+        public string AssetId { get; set; }
         public string PreprocessorNotificationQueue { get; set; }
         public string EmbedderNotificationQueue { get; set; }
         public List<VideoInformation> VideoInformation { get; set; }
-        public List<EnbebedCode> EnbebedCodes { get; set; }
+        public List<EmbeddedCode> EmbeddedCodes { get; set; }
     }
 
    

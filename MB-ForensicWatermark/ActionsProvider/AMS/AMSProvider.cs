@@ -20,6 +20,7 @@ namespace ActionsProvider.AMS
     class AMSProvider : IAMSProvider
     {
         string _WaterMarkStorageConStr;
+        string _WatermarkedStorageName;
         CloudMediaContext _mediaContext;
         CloudStorageAccount _WaterMArkStorageAccount;
         CloudBlobClient _WaterMArkStorageBlobClient;
@@ -42,7 +43,7 @@ namespace ActionsProvider.AMS
             string sasBlobToken = blob.GetSharedAccessSignature(sasConstraints);
             return blob.Uri + sasBlobToken;
         }
-        public AMSProvider(string TenantId, string ClientId, string ClientSecret, Uri AMSApiUri, string WaterMarkStorageConStr, string AMSStorageConStr,string PUBLISHWATERKEDCOPY, int sasTtl)
+        public AMSProvider(string TenantId, string ClientId, string ClientSecret, Uri AMSApiUri, string WaterMarkStorageConStr, string WatermarkedStorageName, string AMSStorageConStr,string PUBLISHWATERKEDCOPY, int sasTtl)
         {
             AzureAdClientSymmetricKey clientSymmetricKey = new AzureAdClientSymmetricKey(ClientId, ClientSecret);
             var tokenCredentials = new AzureAdTokenCredentials(TenantId, clientSymmetricKey, AzureEnvironments.AzureCloudEnvironment);
@@ -53,6 +54,7 @@ namespace ActionsProvider.AMS
             _WaterMArkStorageAccount = CloudStorageAccount.Parse(WaterMarkStorageConStr);
             _WaterMArkStorageBlobClient = _WaterMArkStorageAccount.CreateCloudBlobClient();
             _WaterMarkStorageConStr = WaterMarkStorageConStr;
+            _WatermarkedStorageName = WatermarkedStorageName;
             //AMS Stoarge
             _AMSStorageAccount = CloudStorageAccount.Parse(AMSStorageConStr);
             _AMSStorageBlobClient = _AMSStorageAccount.CreateCloudBlobClient();
@@ -123,13 +125,13 @@ namespace ActionsProvider.AMS
                 VideoInformation video = CreateVideoInformationK28JobNode(file.Name, theAsset, AssetLocatorPath);
                 manifestInfo.VideoInformation.Add(video);
                 //Watermarked
-                foreach (var code in manifestInfo.EnbebedCodes)
+                foreach (var code in manifestInfo.EmbeddedCodes)
                 {
                     var wmp4Name = System.Web.HttpUtility.UrlPathEncode(video.FileName);
                     code.MP4WatermarkedURL.Add(new MP4WatermarkedURL()
                     {
                         FileName = video.FileName,
-                        WaterMarkedMp4 = GetBlobSasUri(_AMSStorageBlobClient,"watermarked", $"{theAsset.Id}/{code.EmbebedCode}/{wmp4Name}", allAccess, _SASTTL)
+                        WaterMarkedMp4 = GetBlobSasUri(_WaterMArkStorageBlobClient,"watermarked", $"{theAsset.Id}/{code.Code}/{wmp4Name}", allAccess, _SASTTL)
                     });
                 }
             }
@@ -155,27 +157,27 @@ namespace ActionsProvider.AMS
             return accessSignature;
 
         }
-        public async Task<ManifestInfo> GetK8SJobManifestAsync(string AssetID, string JobID, List<string> codes)
+        public async Task<ManifestInfo> GetK8SJobManifestAsync(string AssetId, string JobId, List<string> codes)
         {
             string AssetLocatorPath = "";
-            string EmbedderNotificationQueue = await CreateSharedAccessPolicyAsync("embeddernotification", JobID);
-            string PreprocessorNotificationQueue = await CreateSharedAccessPolicyAsync("preprocessorout", JobID);
+            string EmbedderNotificationQueue = await CreateSharedAccessPolicyAsync("embeddernotification", JobId);
+            string PreprocessorNotificationQueue = await CreateSharedAccessPolicyAsync("preprocessorout", JobId);
             ManifestInfo myData = new ManifestInfo
             {
-                JobID = JobID,
-                AssetID = AssetID,
+                JobId = JobId,
+                AssetId = AssetId,
                 EmbedderNotificationQueue = EmbedderNotificationQueue,
                 PreprocessorNotificationQueue = PreprocessorNotificationQueue,
                 //Video information
                 VideoInformation = new List<VideoInformation>(),
-                //Enbebedcodes
-                EnbebedCodes = new List<EnbebedCode>()
+                //EmbeddedCodes
+                EmbeddedCodes = new List<EmbeddedCode>()
             };
             foreach (var code in codes)
             {
-                myData.EnbebedCodes.Add(new EnbebedCode()
+                myData.EmbeddedCodes.Add(new EmbeddedCode()
                 {
-                    EmbebedCode = code,
+                    Code = code,
                     MP4WatermarkedURL = new List<MP4WatermarkedURL>()
                 });
             }
@@ -183,11 +185,11 @@ namespace ActionsProvider.AMS
             IAsset currentAsset = null;
             try
             {
-                currentAsset = _mediaContext.Assets.Where(a => a.Id == AssetID).FirstOrDefault();
+                currentAsset = _mediaContext.Assets.Where(a => a.Id == AssetId).FirstOrDefault();
             }
             catch (Exception X)
             {
-                throw new Exception($"AssetID {AssetID} not found. Error: {X.Message}");
+                throw new Exception($"AssetId {AssetId} not found. Error: {X.Message}");
             }
 
             var AssetLocator = currentAsset.Locators.Where(l => l.Type == LocatorType.OnDemandOrigin).FirstOrDefault();
@@ -203,7 +205,7 @@ namespace ActionsProvider.AMS
             IEnumerable<IAssetFile> mp4AssetFiles = currentAsset.AssetFiles.ToList().Where(af => af.Name.EndsWith(".mp4", StringComparison.OrdinalIgnoreCase)).OrderBy(f => f.ContentFileSize);
 
 
-            myData = GetManifest5Jobs(myData, /*AssetID*/ currentAsset, mp4AssetFiles, AssetLocatorPath);
+            myData = GetManifest5Jobs(myData, /*AssetId*/ currentAsset, mp4AssetFiles, AssetLocatorPath);
 
 
             return myData;
@@ -218,7 +220,7 @@ namespace ActionsProvider.AMS
         }
         public void DeleteWatermakedBlobRenders(string AssetId)
         {
-            CloudBlobContainer container = _AMSStorageBlobClient.GetContainerReference("watermarked");
+            CloudBlobContainer container = _WaterMArkStorageBlobClient.GetContainerReference("watermarked");
 
             foreach (IListBlobItem item in container.ListBlobs(AssetId, true))
             {
@@ -274,12 +276,12 @@ namespace ActionsProvider.AMS
             int startIndex = AssetPrefix.Length - 1; // 
             return AssetBlobContainerNamePrefix + AssetId.Substring(startIndex, AssetId.Length - startIndex);
         }
-        IAsset GetMediaAssetFromAssetId(string assetId)
+        IAsset GetMediaAssetFromAssetId(string AssetId)
         {
             // Use a LINQ Select query to get an asset.
             var assetInstance =
                 from a in _mediaContext.Assets
-                where a.Id == assetId
+                where a.Id == AssetId
                 select a;
             // Reference the asset as an IAsset.
             IAsset asset = assetInstance.FirstOrDefault();
@@ -302,7 +304,7 @@ namespace ActionsProvider.AMS
                 IAsset SourceMediaAsset = GetMediaAssetFromAssetId(SourceAssetId);
                 string NewAssetName = $"{SourceMediaAsset.Name}-{ProcessId}-{DateTime.Now.Ticks.ToString()}";
                 CancellationToken myToken = new CancellationToken();
-                IAsset newWatermarkedAsset = await _mediaContext.Assets.CreateAsync(NewAssetName, AssetCreationOptions.None, myToken);
+                IAsset newWatermarkedAsset = await _mediaContext.Assets.CreateAsync(NewAssetName,_WatermarkedStorageName , AssetCreationOptions.None, myToken);
                 newWatermarkedAsset.AlternateId = $"{SourceAssetId}-{WMEmbedCode}";
                 await newWatermarkedAsset.UpdateAsync();
                 result.Status = result.Status = "Finished"; ;
@@ -389,7 +391,7 @@ namespace ActionsProvider.AMS
 
             string containerName = ConvertMediaAssetIdToStorageContainerName(Asset.Id);
 
-            CloudBlobContainer DestinationBlobContainer = _AMSStorageBlobClient.ListContainers().Where(n => n.Name == containerName).FirstOrDefault();
+            CloudBlobContainer DestinationBlobContainer = _WaterMArkStorageBlobClient.ListContainers().Where(n => n.Name == containerName).FirstOrDefault();
 
             CloudBlockBlob sourceBlob = new CloudBlockBlob(new Uri(MMRKURL));
 

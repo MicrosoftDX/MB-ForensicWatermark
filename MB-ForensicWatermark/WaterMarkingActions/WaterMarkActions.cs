@@ -23,6 +23,27 @@ namespace WaterMarkingActions
 {
     public static class WaterMarkActions
     {
+        /// <summary>
+        /// Check the status of an asset
+        /// </summary>
+        /// <param name="req"></param>
+        /// <param name="log"></param>
+        /// <returns></returns>
+        [FunctionName("CheckAssetStatus")]
+        public static async Task<HttpResponseMessage> CheckAssetStatus([HttpTrigger(AuthorizationLevel.Function, "post", Route = null)]HttpRequestMessage req, TraceWriter log)
+        {
+            string content = await req.Content.ReadAsStringAsync();
+            var BodyData = content.GetBodyData<RequestData.CheckAssetStatus>();
+            string AssetId = BodyData.AssetId;
+            //Save Status
+            IActionsProvider myActions = ActionProviderFactory.GetActionProvider();
+            var status = myActions.GetAssetStatus(AssetId);
+            if (status == null)
+            {
+                return req.CreateResponse(HttpStatusCode.NotFound, $"Asset with id '{AssetId}' was not watermarked yet.", JsonMediaTypeFormatter.DefaultMediaType);
+            }
+            return req.CreateResponse(HttpStatusCode.OK, status, JsonMediaTypeFormatter.DefaultMediaType);
+        }
         [FunctionName("StartNewJob")]
         public static async Task<HttpResponseMessage> StartNewJob([HttpTrigger(AuthorizationLevel.Function, "post", Route = null)]HttpRequestMessage req, TraceWriter log)
         {

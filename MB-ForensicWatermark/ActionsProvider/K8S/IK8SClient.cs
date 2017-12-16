@@ -11,6 +11,6 @@ namespace ActionsProvider.K8S
     {
         Task<List<KeyValuePair<string, string>>> GetK8SJobLog(string JobNamePrefix);
         Task<K8SResult> DeletePods(string JobName,string status = "All");
-        Task<K8SResult> SubmiteK8SJob(HttpContent yamalJob);
+        Task<K8SResult> SubmitK8SJob(HttpContent yamalJob);
     }
 }
