@@ -1,0 +1,59 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 15
+VisualStudioVersion = 15.0.27110.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ActionsProvider", "ActionsProvider\ActionsProvider.csproj", "{234A9AE6-CD3D-49BA-B791-536281C3EE2F}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Functions", "Functions", "{506C7B26-EFC0-4D40-A4ED-A844F842B682}"
+	ProjectSection(SolutionItems) = preProject
+		readme.md = readme.md
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "K8S-Core", "K8S-Core", "{444C3B9E-354A-42B4-B453-1CBB4441CF2A}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "embedder", "..\k8s\embedder.src\embedder.csproj", "{FFFE2C31-C8C3-4B26-B846-8D290A56AEAA}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Processes", "Processes", "{1C2ACA2C-AFDC-469D-840F-2BB166C208CF}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WaterMarkingActions", "WaterMarkingActions\WaterMarkingActions.csproj", "{B2E240E6-DB65-42E4-9AC3-A1DBF322D436}"
+EndProject
+Project("{151D2E53-A2C4-4D7D-83FE-D05416EBD58E}") = "WaterMarking", "WaterMarking\WaterMarking.deployproj", "{6BE6BE3D-3F72-478A-B3D9-2D3D4AAA8017}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{234A9AE6-CD3D-49BA-B791-536281C3EE2F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{234A9AE6-CD3D-49BA-B791-536281C3EE2F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{234A9AE6-CD3D-49BA-B791-536281C3EE2F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{234A9AE6-CD3D-49BA-B791-536281C3EE2F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{FFFE2C31-C8C3-4B26-B846-8D290A56AEAA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FFFE2C31-C8C3-4B26-B846-8D290A56AEAA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FFFE2C31-C8C3-4B26-B846-8D290A56AEAA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FFFE2C31-C8C3-4B26-B846-8D290A56AEAA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B2E240E6-DB65-42E4-9AC3-A1DBF322D436}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B2E240E6-DB65-42E4-9AC3-A1DBF322D436}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B2E240E6-DB65-42E4-9AC3-A1DBF322D436}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B2E240E6-DB65-42E4-9AC3-A1DBF322D436}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6BE6BE3D-3F72-478A-B3D9-2D3D4AAA8017}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6BE6BE3D-3F72-478A-B3D9-2D3D4AAA8017}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6BE6BE3D-3F72-478A-B3D9-2D3D4AAA8017}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6BE6BE3D-3F72-478A-B3D9-2D3D4AAA8017}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{234A9AE6-CD3D-49BA-B791-536281C3EE2F} = {506C7B26-EFC0-4D40-A4ED-A844F842B682}
+		{FFFE2C31-C8C3-4B26-B846-8D290A56AEAA} = {444C3B9E-354A-42B4-B453-1CBB4441CF2A}
+		{B2E240E6-DB65-42E4-9AC3-A1DBF322D436} = {506C7B26-EFC0-4D40-A4ED-A844F842B682}
+		{6BE6BE3D-3F72-478A-B3D9-2D3D4AAA8017} = {1C2ACA2C-AFDC-469D-840F-2BB166C208CF}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {9D05A431-6E93-4E29-B5FD-C1D2C02137CD}
+		EnterpriseLibraryConfigurationToolBinariesPath = packages\TransientFaultHandling.Core.5.1.1209.1\lib\NET4
+	EndGlobalSection
+EndGlobal

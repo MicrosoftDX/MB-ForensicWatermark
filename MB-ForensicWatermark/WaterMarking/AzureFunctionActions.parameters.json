@@ -1,0 +1,33 @@
+﻿{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "functionAppName": {
+      "value": ""
+    },
+    "TenantId": {
+      "value": ""
+    },
+    "ClientId": {
+      "value": ""
+    },
+    "ClientSecret": {
+      "value": ""
+    },
+    "AMSApiUri": {
+      "value": ""
+    },
+    "AMSStorageConStr": {
+      "value": ""
+    },
+    "K8SURL": {
+      "value": ""
+    },
+    "K8SURLTOKEN": {
+      "value": ""
+    },
+    "imageName": {
+      "value": ""
+    }
+  }
+}
