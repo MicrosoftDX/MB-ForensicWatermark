@@ -384,23 +384,24 @@ namespace ActionsProvider.AMS
                 result.StatusMessage = "Either Source Asset or WM Embed Code missing.";
                 return result;
             }
-
-            IAsset Asset = _mediaContext.Assets.Where(a => a.Id == WatermarkedAssetId).FirstOrDefault();
-
-            string containerName = ConvertMediaAssetIdToStorageContainerName(Asset.Id);
-
-            CloudBlobContainer DestinationBlobContainer = _AMSStorageBlobClient.ListContainers().Where(n => n.Name == containerName).FirstOrDefault();
-
-            CloudBlockBlob sourceBlob = new CloudBlockBlob(new Uri(MMRKURL));
-
-            // Get a reference to the destination blob (in this case, a new blob).
-            string name = HttpUtility.UrlDecode(HttpUtility.UrlDecode(Path.GetFileName(sourceBlob.Uri.AbsolutePath)));
-            CloudBlockBlob destBlob = DestinationBlobContainer.GetBlockBlobReference(name);
-
-            string copyId = null;
-
+            //Expanded Try area for possible BLOB errors
             try
             {
+                IAsset Asset = _mediaContext.Assets.Where(a => a.Id == WatermarkedAssetId).FirstOrDefault();
+
+                string containerName = ConvertMediaAssetIdToStorageContainerName(Asset.Id);
+
+                CloudBlobContainer DestinationBlobContainer = _AMSStorageBlobClient.ListContainers().Where(n => n.Name == containerName).FirstOrDefault();
+
+                CloudBlockBlob sourceBlob = new CloudBlockBlob(new Uri(MMRKURL));
+
+                // Get a reference to the destination blob (in this case, a new blob).
+                string name = HttpUtility.UrlDecode(HttpUtility.UrlDecode(Path.GetFileName(sourceBlob.Uri.AbsolutePath)));
+                CloudBlockBlob destBlob = DestinationBlobContainer.GetBlockBlobReference(name);
+
+                string copyId = null;
+
+
                 copyId = await destBlob.StartCopyAsync(sourceBlob);
 
                 result.MMRKURLAdded = MMRKURL;
@@ -445,7 +446,8 @@ namespace ActionsProvider.AMS
                 //throw;
                 result.MMRKURLAdded = MMRKURL;
                 result.Status = $"Copy error {e.Message}";
-                result.StatusMessage = destBlob.Name + "error";
+                //Add Blob Info to the error
+                result.StatusMessage = $"{MMRKURL} Error"; //destBlob.Name + "error";
                 result.EmbedCode = WMEmbedCode;
                 result.WMAssetId = WatermarkedAssetId;
             }

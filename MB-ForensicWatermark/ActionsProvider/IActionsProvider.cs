@@ -20,8 +20,8 @@ namespace ActionsProvider
         MMRKStatus GetMMRKStatus(string AsssetId, string JobRender);
         List<MMRKStatus> GetMMRKStatusList(string AssetID);
         UnifiedResponse.AssetStatus GetAssetStatus(string AssetId);
-        Task<int> EvalPreprocessorNotifications();
-        Task<int> EvalPEmbeddedNotifications();
+        Task<int> EvalPreprocessorNotifications(string JobId);
+        Task<int> EvalPEmbeddedNotifications(string JobId);
         UnifiedResponse.AssetStatus EvalAssetStatus(string AssetId);
         UnifiedResponse.WaterMarkedRender UpdateWaterMarkedRender(UnifiedResponse.WaterMarkedRender renderData);
         UnifiedResponse.WaterMarkedRender GetWaterMarkedRender(string ParentAssetID, string EmbebedCodeValue, string RenderName);

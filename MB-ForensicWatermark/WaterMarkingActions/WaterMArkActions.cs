@@ -83,14 +83,22 @@ namespace WaterMarkingActions
 
             IActionsProvider myActions = ActionProviderFactory.GetActionProvider();
             //1. Update EvalPreprocessorNotifications
-            int nNotification = await myActions.EvalPreprocessorNotifications();
+            int nNotification = await myActions.EvalPreprocessorNotifications(manifest.JobStatus.JobID);
             log.Info($"Preprocessor Notifications processed {nNotification}");
             //2. Eval Asset Status
+            var OriginalAssetStatus = manifest.AssetStatus;
             manifest.AssetStatus = myActions.EvalAssetStatus(manifest.AssetStatus.AssetId);
-            //3. Update Manifest/ all process
-            myActions.UpdateUnifiedProcessStatus(manifest);
-            //4. Log and replay
-            log.Info($"Updated Actions AssetId {manifest.AssetStatus.AssetId} staus {manifest.AssetStatus.ToString()}");
+            if (OriginalAssetStatus != manifest.AssetStatus)
+            {
+                //3. Update Manifest/ all process
+                myActions.UpdateUnifiedProcessStatus(manifest);
+                //4. Log and replay
+                log.Info($"Updated Actions AssetId {manifest.AssetStatus.AssetId} staus {manifest.AssetStatus}");
+            }
+            else
+            {
+                log.Info($"Same  AssetId status {manifest.AssetStatus.AssetId} staus {manifest.AssetStatus}");
+            }
             return req.CreateResponse(HttpStatusCode.OK, manifest, JsonMediaTypeFormatter.DefaultMediaType);
         }
 
@@ -126,23 +134,33 @@ namespace WaterMarkingActions
             dynamic BodyData = await req.Content.ReadAsAsync<object>();
             UnifiedProcessStatus manifest = BodyData.ToObject<UnifiedProcessStatus>();
             string ParentAssetID = manifest.AssetStatus.AssetId;
-            //1. Process Embbeded Notifications
-            int nNotification = await myActions.EvalPEmbeddedNotifications();
-            log.Info($"Embedded Notifications processed {nNotification}");
-            //2. Eval Each Watermark Render status
-            List<WaterMarkedAssetInfo> UpdatedInfo = new List<WaterMarkedAssetInfo>();
-            foreach (var item in manifest.EmbebedCodesList)
+            try
             {
+                //1. Process Embbeded Notifications (From share Queue)
+                int nNotification = await myActions.EvalPEmbeddedNotifications(manifest.JobStatus.JobID);
+                log.Info($"Embedded Notifications processed {nNotification}");
+                //2. Eval Each Watermark Render status
+                List<WaterMarkedAssetInfo> UpdatedInfo = new List<WaterMarkedAssetInfo>();
+                foreach (var item in manifest.EmbebedCodesList)
+                {
+                    //2.1 EvalWatermarkeAssetInfo 
+                    var watermarkedRender = myActions.EvalWaterMarkedAssetInfo(ParentAssetID, item.EmbebedCodeValue);
+                    UpdatedInfo.Add(watermarkedRender);
+                    log.Info($"{watermarkedRender.AssetID} status {watermarkedRender.State.ToString()}");
+                }
+                //Replace New WaterMarkAssetInfo
+                manifest.EmbebedCodesList = UpdatedInfo;
+                //
+                myActions.UpdateUnifiedProcessStatus(manifest);
 
-                UpdatedInfo.Add(myActions.EvalWaterMarkedAssetInfo(ParentAssetID, item.EmbebedCodeValue));
-
+                return req.CreateResponse(HttpStatusCode.OK, manifest, JsonMediaTypeFormatter.DefaultMediaType);
             }
-            //Replace New WaterMarkAssetInfo
-            manifest.EmbebedCodesList = UpdatedInfo;
-            //
-            myActions.UpdateUnifiedProcessStatus(manifest);
-
-            return req.CreateResponse(HttpStatusCode.OK, manifest, JsonMediaTypeFormatter.DefaultMediaType);
+            catch (Exception X)
+            {
+                log.Error($"[{manifest.JobStatus.JobID}]Error on EvalEnbebedCodes {X.Message}");
+                return req.CreateResponse(HttpStatusCode.InternalServerError, manifest, JsonMediaTypeFormatter.DefaultMediaType);
+            }
+           
         }
         [FunctionName("CreateWaterMArkedAssets")]
         public static async Task<HttpResponseMessage> CreateWaterMArkedAssets([HttpTrigger(AuthorizationLevel.Function, "post", Route = null)]HttpRequestMessage req, TraceWriter log)
@@ -167,13 +185,14 @@ namespace WaterMarkingActions
                     //Create new asset per embbeded code
                     IAMSProvider help = AMSProviderFactory.CreateAMSProvider();
                     var xx = await help.CreateEmptyWatermarkedAsset(manifest.JobStatus.JobID, ParentAssetID, watermarkedInfo.EmbebedCodeValue);
-
                     watermarkedInfo.AssetID = xx.WMAssetId;
+                    log.Info($"Watermarket created form {manifest.JobStatus.JobID} with assett id {watermarkedInfo.AssetID}");
                     ////Inject all Renders on New asset
                     foreach (var render in myActions.GetWaterMarkedRenders(ParentAssetID, watermarkedInfo.EmbebedCodeValue))
                     {
                         string url = render.MP4URL;
                         var r = await help.AddWatermarkedMediaFiletoAsset(watermarkedInfo.AssetID, watermarkedInfo.EmbebedCodeValue, url);
+                         log.Info($"[{manifest.JobStatus.JobID}] AddWatermarkedMediaFiletoAsset {r.Status}");
                         if (r.Status != "MMRK File Added")
                         {
                             //Error
@@ -182,9 +201,11 @@ namespace WaterMarkingActions
                             //Delete Asset
                             help.DeleteAsset(watermarkedInfo.AssetID);
                             watermarkedInfo.AssetID = "";
+                            log.Info($"[{manifest.JobStatus.JobID}] Asset deleted  {r.Status}");
                             //Abort
                             break;
                         }
+                        log.Info($"[{manifest.JobStatus.JobID}] AddWatermarkedMediaFiletoAsset {r.Status}");
                     }
                     //Create New Manifest and set it as primary file.
                     await help.GenerateManifest(watermarkedInfo.AssetID);
@@ -198,7 +219,7 @@ namespace WaterMarkingActions
             }
             catch (Exception X)
             {
-
+                log.Error($"{X.Message}");
                 return req.CreateResponse(HttpStatusCode.InternalServerError, X, JsonMediaTypeFormatter.DefaultMediaType);
             }
             return req.CreateResponse(HttpStatusCode.OK, manifest, JsonMediaTypeFormatter.DefaultMediaType);

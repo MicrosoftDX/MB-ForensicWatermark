@@ -244,6 +244,7 @@ namespace ActionsProvider.K8S
             r.IsSuccessStatusCode = rs.IsSuccessStatusCode;
             if (rs.IsSuccessStatusCode)
             {
+                //TODO: Check Job is really running
                 r.Content = await rs.Content.ReadAsStringAsync();
             }
             else

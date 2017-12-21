@@ -96,7 +96,7 @@ namespace ActionsProvider
 
             return x;
         }
-        public async Task<int> EvalPEmbeddedNotifications()
+        public async Task<int> EvalPEmbeddedNotifications(string JobId)
         {
             int nNotification = 0;
             CloudQueueClient queueClient = storageAccount.CreateCloudQueueClient();
@@ -104,20 +104,34 @@ namespace ActionsProvider
 
             foreach (CloudQueueMessage message in await queue.GetMessagesAsync(20, TimeSpan.FromMinutes(60), null, null))
             {
+                Trace.TraceInformation(message.AsString);
                 try
                 {
                     NotificationEmbedder rawdata = Newtonsoft.Json.JsonConvert.DeserializeObject<NotificationEmbedder>(message.AsString);
+                    Trace.TraceInformation($"JobId={JobId} and messageJobId={rawdata.JobID}");
+                    // This message if for JOB
                     WaterMarkedRender data = GetWaterMarkedRender(rawdata.AssetID, rawdata.EmbebedCode, rawdata.FileName);
                     string url = data.MP4URL;
-                    data = new WaterMarkedRender(rawdata, url);
-                    var outputData = UpdateWaterMarkedRender(data);
+                    //Adding Idempotent control for exceptional case of recieve multiple time 
+                    //notifications from K8S container (fail on container)
+                    if (data.State == ExecutionStatus.Running)
+                    {
+                        //WatermarkRender is on right state(first message)
+                        data = new WaterMarkedRender(rawdata, url);
+                        var outputData = UpdateWaterMarkedRender(data);
+                        Trace.TraceInformation($"{JobId} processesd Message {rawdata.Status} ");
+                    }
+                    else
+                    {
+                        //poison message, means Embbedecode was already porcessed
+                        Trace.TraceInformation($"{rawdata.JobID} Idenpotent Message Control  {message.AsString}");
+                        await SendToDeadLetterQueue(queueClient, message);
+                    }
                 }
                 catch (Exception X)
                 {
                     Trace.TraceError($"EvalPEmbeddedNotifications Error: {X.Message}");
-                    CloudQueue deadletter = queueClient.GetQueueReference("deadletter");
-                    await deadletter.CreateIfNotExistsAsync();
-                    await deadletter.AddMessageAsync(message);
+                    await SendToDeadLetterQueue(queueClient, message);
                 }
                 await queue.DeleteMessageAsync(message);
                 nNotification += 1;
@@ -454,7 +468,14 @@ namespace ActionsProvider
             _MMRKSttausTable.Execute(InsertOrReplace);
             return mmrkStatus;
         }
-        public async Task<int> EvalPreprocessorNotifications()
+        private async Task SendToDeadLetterQueue(CloudQueueClient queueClient , CloudQueueMessage message)
+        {
+            Trace.TraceInformation($"Send to SendToDeadLetterQueue: {message.AsString}");
+            CloudQueue deadletter = queueClient.GetQueueReference("deadletter");
+            await deadletter.CreateIfNotExistsAsync();
+            await deadletter.AddMessageAsync(message);
+        }
+        public async Task<int> EvalPreprocessorNotifications(string JobId)
         {
             int nNotification = 0;
             CloudQueueClient queueClient = storageAccount.CreateCloudQueueClient();
@@ -462,23 +483,35 @@ namespace ActionsProvider
 
             foreach (CloudQueueMessage message in await queue.GetMessagesAsync(20, TimeSpan.FromMinutes(60), null, null))
             {
+                Trace.TraceInformation(message.AsString);
                 try
                 {
                     var jNotification = Newtonsoft.Json.Linq.JObject.Parse(message.AsString);
                     // Retrive 
                     string jobRender = $"[{(string)jNotification["JobID"]}]{(string)jNotification["FileName"]}";
                     var MMRK = GetMMRKStatus((string)jNotification["AssetID"], jobRender);
-                    //Update MMRK Status
-                    MMRK.Details = (string)jNotification["JobOutput"];
-                    MMRK.State = (ExecutionStatus)Enum.Parse(typeof(ExecutionStatus), (string)jNotification["Status"]);
-                    UpdateMMRKStatus(MMRK);
+
+                    if ((MMRK.State == ExecutionStatus.Running))
+                    {
+                        //Update MMRK Status
+                        MMRK.Details = (string)jNotification["JobOutput"];
+                        MMRK.State = (ExecutionStatus)Enum.Parse(typeof(ExecutionStatus), (string)jNotification["Status"]);
+                        UpdateMMRKStatus(MMRK);
+                    }
+                    else
+                    {
+                        Trace.TraceInformation($"{MMRK.JobID} Idenpotent Message Control  {message.AsString}");
+                        await SendToDeadLetterQueue(queueClient, message);
+                    }
                 }
                 catch (Exception X)
                 {
                     Trace.TraceError($"EvalPreprocessorNotifications Error: {X.Message}");
-                    CloudQueue deadletter = queueClient.GetQueueReference("deadletter");
-                    await deadletter.CreateIfNotExistsAsync();
-                    await deadletter.AddMessageAsync(message);
+                    await SendToDeadLetterQueue(queueClient,message);
+                   
+                    //CloudQueue deadletter = queueClient.GetQueueReference("deadletter");
+                    //await deadletter.CreateIfNotExistsAsync();
+                    //await deadletter.AddMessageAsync(message);
                 }
                 await queue.DeleteMessageAsync(message);
                 nNotification += 1;
