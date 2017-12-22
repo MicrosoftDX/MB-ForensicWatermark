@@ -102,9 +102,9 @@ namespace ActionsProvider
             CloudQueueClient queueClient = storageAccount.CreateCloudQueueClient();
             CloudQueue queue = queueClient.GetQueueReference("embeddernotification");
 
-            foreach (CloudQueueMessage message in await queue.GetMessagesAsync(20, TimeSpan.FromMinutes(60), null, null))
+            foreach (CloudQueueMessage message in await queue.GetMessagesAsync(5, TimeSpan.FromMinutes(10), null, null))
             {
-                Trace.TraceInformation(message.AsString);
+                Trace.TraceInformation($"[{JobId}] {message.AsString}");
                 try
                 {
                     NotificationEmbedder rawdata = Newtonsoft.Json.JsonConvert.DeserializeObject<NotificationEmbedder>(message.AsString);
@@ -125,14 +125,15 @@ namespace ActionsProvider
                     {
                         //poison message, means Embbedecode was already porcessed
                         Trace.TraceInformation($"{rawdata.JobID} Idenpotent Message Control  {message.AsString}");
-                        await SendToDeadLetterQueue(queueClient, message);
+                        await SendToDeadLetterQueue(queueClient, message.AsString);
                     }
                 }
                 catch (Exception X)
                 {
-                    Trace.TraceError($"EvalPEmbeddedNotifications Error: {X.Message}");
-                    await SendToDeadLetterQueue(queueClient, message);
+                    Trace.TraceError($"[{JobId}] EvalPEmbeddedNotifications Error: {X.Message}");
+                    await SendToDeadLetterQueue(queueClient, message.AsString);
                 }
+
                 await queue.DeleteMessageAsync(message);
                 nNotification += 1;
             }
@@ -468,12 +469,13 @@ namespace ActionsProvider
             _MMRKSttausTable.Execute(InsertOrReplace);
             return mmrkStatus;
         }
-        private async Task SendToDeadLetterQueue(CloudQueueClient queueClient , CloudQueueMessage message)
+        //private async Task SendToDeadLetterQueue(CloudQueueClient queueClient , CloudQueueMessage message)
+        private async Task SendToDeadLetterQueue(CloudQueueClient queueClient , string messageData)
         {
-            Trace.TraceInformation($"Send to SendToDeadLetterQueue: {message.AsString}");
+            //Trace.TraceInformation($"Send to SendToDeadLetterQueue: {message.AsString}");
             CloudQueue deadletter = queueClient.GetQueueReference("deadletter");
             await deadletter.CreateIfNotExistsAsync();
-            await deadletter.AddMessageAsync(message);
+            await deadletter.AddMessageAsync(new CloudQueueMessage(messageData));
         }
         public async Task<int> EvalPreprocessorNotifications(string JobId)
         {
@@ -481,9 +483,9 @@ namespace ActionsProvider
             CloudQueueClient queueClient = storageAccount.CreateCloudQueueClient();
             CloudQueue queue = queueClient.GetQueueReference("preprocessorout");
 
-            foreach (CloudQueueMessage message in await queue.GetMessagesAsync(20, TimeSpan.FromMinutes(60), null, null))
+            foreach (CloudQueueMessage message in await queue.GetMessagesAsync(5, TimeSpan.FromMinutes(10), null, null))
             {
-                Trace.TraceInformation(message.AsString);
+                Trace.TraceInformation($"[{JobId}] {message.AsString}");
                 try
                 {
                     var jNotification = Newtonsoft.Json.Linq.JObject.Parse(message.AsString);
@@ -500,18 +502,14 @@ namespace ActionsProvider
                     }
                     else
                     {
-                        Trace.TraceInformation($"{MMRK.JobID} Idenpotent Message Control  {message.AsString}");
-                        await SendToDeadLetterQueue(queueClient, message);
+                        Trace.TraceInformation($"[{MMRK.JobID}] Idenpotent Message Control  {message.AsString}");
+                        await SendToDeadLetterQueue(queueClient, message.AsString);
                     }
                 }
                 catch (Exception X)
                 {
-                    Trace.TraceError($"EvalPreprocessorNotifications Error: {X.Message}");
-                    await SendToDeadLetterQueue(queueClient,message);
-                   
-                    //CloudQueue deadletter = queueClient.GetQueueReference("deadletter");
-                    //await deadletter.CreateIfNotExistsAsync();
-                    //await deadletter.AddMessageAsync(message);
+                    Trace.TraceError($"[JobId] EvalPreprocessorNotifications Error: {X.Message}");
+                    await SendToDeadLetterQueue(queueClient,message.AsString);
                 }
                 await queue.DeleteMessageAsync(message);
                 nNotification += 1;

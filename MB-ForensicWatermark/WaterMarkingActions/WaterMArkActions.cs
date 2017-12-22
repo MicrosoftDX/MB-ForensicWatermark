@@ -84,20 +84,20 @@ namespace WaterMarkingActions
             IActionsProvider myActions = ActionProviderFactory.GetActionProvider();
             //1. Update EvalPreprocessorNotifications
             int nNotification = await myActions.EvalPreprocessorNotifications(manifest.JobStatus.JobID);
-            log.Info($"Preprocessor Notifications processed {nNotification}");
+            
             //2. Eval Asset Status
-            var OriginalAssetStatus = manifest.AssetStatus;
+            var OriginalAssetStatus = manifest.AssetStatus.State;
             manifest.AssetStatus = myActions.EvalAssetStatus(manifest.AssetStatus.AssetId);
-            if (OriginalAssetStatus != manifest.AssetStatus)
+            if (OriginalAssetStatus != manifest.AssetStatus.State)
             {
                 //3. Update Manifest/ all process
                 myActions.UpdateUnifiedProcessStatus(manifest);
                 //4. Log and replay
-                log.Info($"Updated Actions AssetId {manifest.AssetStatus.AssetId} staus {manifest.AssetStatus}");
+                log.Info($"[{manifest.JobStatus.JobID}] Preprocessor Notifications processed {nNotification} / Updated AssetId {manifest.AssetStatus.AssetId} Status {manifest.AssetStatus.State.ToString()} / previus status {OriginalAssetStatus}");
             }
             else
             {
-                log.Info($"Same  AssetId status {manifest.AssetStatus.AssetId} staus {manifest.AssetStatus}");
+                log.Info($"[{manifest.JobStatus.JobID}] Preprocessor Notifications processed {nNotification} / No Change AssetId {manifest.AssetStatus.AssetId} Status {OriginalAssetStatus}");
             }
             return req.CreateResponse(HttpStatusCode.OK, manifest, JsonMediaTypeFormatter.DefaultMediaType);
         }
@@ -157,7 +157,7 @@ namespace WaterMarkingActions
             }
             catch (Exception X)
             {
-                log.Error($"[{manifest.JobStatus.JobID}]Error on EvalEnbebedCodes {X.Message}");
+                log.Error($"[{manifest.JobStatus.JobID}] Error on EvalEnbebedCodes {X.Message}");
                 return req.CreateResponse(HttpStatusCode.InternalServerError, manifest, JsonMediaTypeFormatter.DefaultMediaType);
             }
            
@@ -186,13 +186,13 @@ namespace WaterMarkingActions
                     IAMSProvider help = AMSProviderFactory.CreateAMSProvider();
                     var xx = await help.CreateEmptyWatermarkedAsset(manifest.JobStatus.JobID, ParentAssetID, watermarkedInfo.EmbebedCodeValue);
                     watermarkedInfo.AssetID = xx.WMAssetId;
-                    log.Info($"Watermarket created form {manifest.JobStatus.JobID} with assett id {watermarkedInfo.AssetID}");
+                    log.Info($"[{manifest.JobStatus.JobID}] Watermarket created form {manifest.JobStatus.JobID} with assett id {watermarkedInfo.AssetID}");
                     ////Inject all Renders on New asset
                     foreach (var render in myActions.GetWaterMarkedRenders(ParentAssetID, watermarkedInfo.EmbebedCodeValue))
                     {
                         string url = render.MP4URL;
                         var r = await help.AddWatermarkedMediaFiletoAsset(watermarkedInfo.AssetID, watermarkedInfo.EmbebedCodeValue, url);
-                         log.Info($"[{manifest.JobStatus.JobID}] AddWatermarkedMediaFiletoAsset {r.Status}");
+                        log.Info($"[{manifest.JobStatus.JobID}] AddWatermarkedMediaFiletoAsset {r.Status}");
                         if (r.Status != "MMRK File Added")
                         {
                             //Error
