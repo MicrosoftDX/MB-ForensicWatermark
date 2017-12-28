@@ -176,46 +176,46 @@ namespace WaterMarkingActions
             try
             {
 
-            
-            //List only Finished without AsstID
-            foreach (var watermarkedInfo in manifest.EmbebedCodesList)
-            {
-                if ((watermarkedInfo.State == ExecutionStatus.Finished) && (string.IsNullOrEmpty(watermarkedInfo.AssetID)))
-                {
-                    //Create new asset per embbeded code
-                    IAMSProvider help = AMSProviderFactory.CreateAMSProvider();
-                    var xx = await help.CreateEmptyWatermarkedAsset(manifest.JobStatus.JobID, ParentAssetID, watermarkedInfo.EmbebedCodeValue);
-                    watermarkedInfo.AssetID = xx.WMAssetId;
-                    log.Info($"[{manifest.JobStatus.JobID}] Watermarket created form {manifest.JobStatus.JobID} with assett id {watermarkedInfo.AssetID}");
-                    ////Inject all Renders on New asset
-                    foreach (var render in myActions.GetWaterMarkedRenders(ParentAssetID, watermarkedInfo.EmbebedCodeValue))
-                    {
-                        string url = render.MP4URL;
-                        var r = await help.AddWatermarkedMediaFiletoAsset(watermarkedInfo.AssetID, watermarkedInfo.EmbebedCodeValue, url);
-                        log.Info($"[{manifest.JobStatus.JobID}] AddWatermarkedMediaFiletoAsset {r.Status}");
-                        if (r.Status != "MMRK File Added")
-                        {
-                            //Error
-                            watermarkedInfo.State = ExecutionStatus.Error;
-                            watermarkedInfo.Details = $"Error adding {render.RenderName} deatils: {r.StatusMessage}";
-                            //Delete Asset
-                            help.DeleteAsset(watermarkedInfo.AssetID);
-                            watermarkedInfo.AssetID = "";
-                            log.Info($"[{manifest.JobStatus.JobID}] Asset deleted  {r.Status}");
-                            //Abort
-                            break;
-                        }
-                        log.Info($"[{manifest.JobStatus.JobID}] AddWatermarkedMediaFiletoAsset {r.Status}");
-                    }
-                    //Create New Manifest and set it as primary file.
-                    await help.GenerateManifest(watermarkedInfo.AssetID);
-                }
-                UpdatedInfo.Add(watermarkedInfo);
-            }
-            //Replace New WaterMarkAssetInfo
-            manifest.EmbebedCodesList = UpdatedInfo;
 
-            myActions.UpdateUnifiedProcessStatus(manifest);
+                //List only Finished without AsstID
+                foreach (var watermarkedInfo in manifest.EmbebedCodesList)
+                {
+                    if ((watermarkedInfo.State == ExecutionStatus.Finished) && (string.IsNullOrEmpty(watermarkedInfo.AssetID)))
+                    {
+                        //Create new asset per embbeded code
+                        IAMSProvider help = AMSProviderFactory.CreateAMSProvider();
+                        var xx = await help.CreateEmptyWatermarkedAsset(manifest.JobStatus.JobID, ParentAssetID, watermarkedInfo.EmbebedCodeValue);
+                        watermarkedInfo.AssetID = xx.WMAssetId;
+                        log.Info($"[{manifest.JobStatus.JobID}] Watermarket created form {manifest.JobStatus.JobID} with assett id {watermarkedInfo.AssetID}");
+                        ////Inject all Renders on New asset
+                        foreach (var render in myActions.GetWaterMarkedRenders(ParentAssetID, watermarkedInfo.EmbebedCodeValue))
+                        {
+                            string url = render.MP4URL;
+                            var r = await help.AddWatermarkedMediaFiletoAsset(watermarkedInfo.AssetID, watermarkedInfo.EmbebedCodeValue, url);
+                            log.Info($"[{manifest.JobStatus.JobID}] AddWatermarkedMediaFiletoAsset {r.Status}");
+                            if (r.Status != "MMRK File Added")
+                            {
+                                //Error
+                                watermarkedInfo.State = ExecutionStatus.Error;
+                                watermarkedInfo.Details = $"Error adding {render.RenderName} deatils: {r.StatusMessage}";
+                                //Delete Asset
+                                help.DeleteAsset(watermarkedInfo.AssetID);
+                                watermarkedInfo.AssetID = "";
+                                log.Info($"[{manifest.JobStatus.JobID}] Asset deleted  {r.Status}");
+                                //Abort
+                                break;
+                            }
+                            log.Info($"[{manifest.JobStatus.JobID}] AddWatermarkedMediaFiletoAsset {r.Status}");
+                        }
+                        //Create New Manifest and set it as primary file.
+                        await help.GenerateManifest(watermarkedInfo.AssetID);
+                    }
+                    UpdatedInfo.Add(watermarkedInfo);
+                }
+                //Replace New WaterMarkAssetInfo
+                manifest.EmbebedCodesList = UpdatedInfo;
+
+                myActions.UpdateUnifiedProcessStatus(manifest);
             }
             catch (Exception X)
             {
@@ -228,12 +228,12 @@ namespace WaterMarkingActions
         [FunctionName("EvalJobProgress")]
         public static async Task<HttpResponseMessage> EvalJobProgress([HttpTrigger(AuthorizationLevel.Function, "post", Route = null)]HttpRequestMessage req, TraceWriter log)
         {
-
+            log.Info("EvalJobProgress");
             dynamic BodyData = await req.Content.ReadAsAsync<object>();
             UnifiedProcessStatus myProcessStatus = BodyData.ToObject<UnifiedProcessStatus>();
             IActionsProvider myActions = ActionProviderFactory.GetActionProvider();
             //Check AssetStatus
-
+            log.Info($"[{myProcessStatus.JobStatus.JobID}] Job Status: {myProcessStatus.JobStatus.State.ToString()} / Asset Status {myProcessStatus.AssetStatus.State.ToString()}");
             switch (myProcessStatus.AssetStatus.State)
             {
                 case ExecutionStatus.Error:
@@ -415,7 +415,6 @@ namespace WaterMarkingActions
             try
             {
                 var r = await k.DeletePods(prefixName, "Succeeded");
-                //var r = await k.DeletePods(JobId, prefixName, new List<string>());
 
                 return req.CreateResponse(r.Code, r, JsonMediaTypeFormatter.DefaultMediaType);
             }

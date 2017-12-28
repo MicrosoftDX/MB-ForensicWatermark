@@ -3,7 +3,10 @@ kind: Job
 metadata:
   name: [JOBNAME] 
 spec: 
-    template: 
+    template:
+        metadata:
+            labels:
+                jobid: jobid-[JOBID] 
         spec:
             restartPolicy: Never
             containers: 
