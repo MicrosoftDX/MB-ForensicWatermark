@@ -35,8 +35,8 @@ namespace embedder
             };
             processStartInfo.RedirectStandardOutput = true;
             processStartInfo.RedirectStandardError = true;
-            process.OutputDataReceived += (sender, data) => { output.Add($"{prefix}: {data.Data}"); };
-            process.ErrorDataReceived += (sender, data) => { output.Add($"{prefix} ERR: {data.Data}"); };
+            process.OutputDataReceived += (sender, data) => { if (!string.IsNullOrEmpty(data.Data)) { output.Add($"{prefix}: {data.Data}"); } };
+            process.ErrorDataReceived += (sender, data) => { if (!string.IsNullOrEmpty(data.Data)) { output.Add($"{prefix} ERR: {data.Data}"); } };
 
             Func<Task<ExecutionResult>> RunAsync = () =>
             {
