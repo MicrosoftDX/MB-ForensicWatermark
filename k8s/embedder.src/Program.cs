@@ -123,10 +123,6 @@ namespace embedder
                         sleepDurationProvider: attempt => TimeSpan.FromSeconds(1))
                     .Execute(() =>
                     {
-                        if (pd.LocalFile.Exists)
-                        {
-                            pd.LocalFile.Delete();
-                        }
                         if (pd.MmrkFile.Exists)
                         {
                             pd.MmrkFile.Delete();
@@ -368,6 +364,16 @@ namespace embedder
                     return;
                 }
                 stdout($"***End PREPROCESSOR2 {DateTime.Now.ToString()}");
+
+                #endregion
+
+                #region Delete MP4
+
+                // Download the input MP4 after MMRK is generated
+                if (_.LocalFile.Exists)
+                {
+                    _.LocalFile.Delete();
+                }
 
                 #endregion
 
