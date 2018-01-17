@@ -130,6 +130,7 @@ namespace WaterMarkingActions
         [FunctionName("EvalEnbebedCodes")]
         public static async Task<HttpResponseMessage> EvalEnbebedCodes([HttpTrigger(AuthorizationLevel.Function, "post", Route = null)]HttpRequestMessage req, TraceWriter log)
         {
+            log.Info($"start EvalEnbebedCodes {DateTime.UtcNow.ToString()}");
             IActionsProvider myActions = ActionProviderFactory.GetActionProvider();
             dynamic BodyData = await req.Content.ReadAsAsync<object>();
             UnifiedProcessStatus manifest = BodyData.ToObject<UnifiedProcessStatus>();
@@ -152,19 +153,21 @@ namespace WaterMarkingActions
                 manifest.EmbebedCodesList = UpdatedInfo;
                 //
                 myActions.UpdateUnifiedProcessStatus(manifest);
-
-                return req.CreateResponse(HttpStatusCode.OK, manifest, JsonMediaTypeFormatter.DefaultMediaType);
+                
             }
             catch (Exception X)
             {
                 log.Error($"[{manifest.JobStatus.JobID}] Error on EvalEnbebedCodes {X.Message}");
                 return req.CreateResponse(HttpStatusCode.InternalServerError, manifest, JsonMediaTypeFormatter.DefaultMediaType);
             }
-           
+
+            log.Info($"finish EvalEnbebedCodes {DateTime.UtcNow.ToString()}");
+            return req.CreateResponse(HttpStatusCode.OK, manifest, JsonMediaTypeFormatter.DefaultMediaType);
         }
         [FunctionName("CreateWaterMArkedAssets")]
         public static async Task<HttpResponseMessage> CreateWaterMArkedAssets([HttpTrigger(AuthorizationLevel.Function, "post", Route = null)]HttpRequestMessage req, TraceWriter log)
         {
+            log.Info($"start CreateWaterMArkedAssets {DateTime.UtcNow.ToString()}");
             IActionsProvider myActions = ActionProviderFactory.GetActionProvider();
 
             dynamic BodyData = await req.Content.ReadAsAsync<object>();
@@ -175,15 +178,14 @@ namespace WaterMarkingActions
 
             try
             {
-
-
+                IAMSProvider help = AMSProviderFactory.CreateAMSProvider();
                 //List only Finished without AsstID
                 foreach (var watermarkedInfo in manifest.EmbebedCodesList)
                 {
                     if ((watermarkedInfo.State == ExecutionStatus.Finished) && (string.IsNullOrEmpty(watermarkedInfo.AssetID)))
                     {
                         //Create new asset per embbeded code
-                        IAMSProvider help = AMSProviderFactory.CreateAMSProvider();
+                        //IAMSProvider help = AMSProviderFactory.CreateAMSProvider();
                         var xx = await help.CreateEmptyWatermarkedAsset(manifest.JobStatus.JobID, ParentAssetID, watermarkedInfo.EmbebedCodeValue);
                         watermarkedInfo.AssetID = xx.WMAssetId;
                         log.Info($"[{manifest.JobStatus.JobID}] Watermarket created form {manifest.JobStatus.JobID} with assett id {watermarkedInfo.AssetID}");
@@ -222,13 +224,14 @@ namespace WaterMarkingActions
                 log.Error($"{X.Message}");
                 return req.CreateResponse(HttpStatusCode.InternalServerError, X, JsonMediaTypeFormatter.DefaultMediaType);
             }
+            log.Info($"finish CreateWaterMArkedAssets {DateTime.UtcNow.ToString()}");
             return req.CreateResponse(HttpStatusCode.OK, manifest, JsonMediaTypeFormatter.DefaultMediaType);
         }
 
         [FunctionName("EvalJobProgress")]
         public static async Task<HttpResponseMessage> EvalJobProgress([HttpTrigger(AuthorizationLevel.Function, "post", Route = null)]HttpRequestMessage req, TraceWriter log)
         {
-            log.Info("EvalJobProgress");
+            log.Info($"start EvalJobProgress {DateTime.UtcNow.ToString()}");
             dynamic BodyData = await req.Content.ReadAsAsync<object>();
             UnifiedProcessStatus myProcessStatus = BodyData.ToObject<UnifiedProcessStatus>();
             IActionsProvider myActions = ActionProviderFactory.GetActionProvider();
@@ -281,7 +284,7 @@ namespace WaterMarkingActions
                     log.Info($"Updated Manifest JOB Status {myProcessStatus.JobStatus.State.ToString()}");
                     break;
             }
-
+            log.Info($"finish EvalJobProgress {DateTime.UtcNow.ToString()}");
             return req.CreateResponse(HttpStatusCode.OK, myProcessStatus, JsonMediaTypeFormatter.DefaultMediaType);
         }
         [FunctionName("GetUnifiedProcessStatus")]
