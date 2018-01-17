@@ -69,7 +69,8 @@ namespace embedder
             #region Read Job
 
             EmbedderJobDTO job = null;
-            if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("JOB")))
+            var jobEnvironmentVariable = Environment.GetEnvironmentVariable("JOB");
+            if (string.IsNullOrEmpty(jobEnvironmentVariable))
             {
                 stderr("Could not retrieve job from 'JOB' environment variable...");
                 return -1;
@@ -77,21 +78,21 @@ namespace embedder
             try
             {
                 // cat juan.json | jq -c -M . | base64 --wrap=0 > juan.base64
-
-                var environmentVariable = Environment.GetEnvironmentVariable("JOB");
                 var json = Encoding.UTF8.GetString(
-                    Convert.FromBase64String(environmentVariable));
+                    Convert.FromBase64String(jobEnvironmentVariable));
                 job = JsonConvert.DeserializeObject<EmbedderJobDTO>(json);
+
+                if (job == null)
+                {
+                    stderr("Could not read job description from 'JOB' environment variable");
+                    return -1;
+                }
             }
             catch (Exception ex)
             {
-                stderr(ex.Message);
+                stderr($"Could not parse the job description: {ex.Message}");
+                stderr($"JOB ==  {jobEnvironmentVariable}");
                 return -1; 
-            }
-            if (job == null)
-            {
-                stderr("Could not read job description from 'JOB' environment variable");
-                return -1;
             }
 
             #endregion
@@ -122,10 +123,6 @@ namespace embedder
                         sleepDurationProvider: attempt => TimeSpan.FromSeconds(1))
                     .Execute(() =>
                     {
-                        if (pd.LocalFile.Exists)
-                        {
-                            pd.LocalFile.Delete();
-                        }
                         if (pd.MmrkFile.Exists)
                         {
                             pd.MmrkFile.Delete();
@@ -367,6 +364,16 @@ namespace embedder
                     return;
                 }
                 stdout($"***End PREPROCESSOR2 {DateTime.Now.ToString()}");
+
+                #endregion
+
+                #region Delete MP4
+
+                // Download the input MP4 after MMRK is generated
+                if (_.LocalFile.Exists)
+                {
+                    _.LocalFile.Delete();
+                }
 
                 #endregion
 

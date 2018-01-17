@@ -3,17 +3,15 @@ kind: Job
 metadata:
   name: [JOBNAME] 
 spec: 
-    template: 
+    template:
+        metadata:
+            labels:
+                jobid: jobid-[JOBID] 
         spec:
             restartPolicy: Never
             containers: 
               - name: allinone-job
                 image: [IMAGENAME]
-               
-                resources: 
-                    requests: 
-                        cpu: 20m 
-                        memory: 512Mi 
                 env: 
                   - name: LICENSES
                     valueFrom:
@@ -22,5 +20,4 @@ spec:
                              key: licenses 
                   - name: JOB 
                     value:  [JOBBASE64]
-
                 command: [ 'dotnet', 'embedder.dll' ]

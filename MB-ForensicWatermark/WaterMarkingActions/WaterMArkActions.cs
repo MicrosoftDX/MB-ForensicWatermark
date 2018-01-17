@@ -130,6 +130,7 @@ namespace WaterMarkingActions
         [FunctionName("EvalEnbebedCodes")]
         public static async Task<HttpResponseMessage> EvalEnbebedCodes([HttpTrigger(AuthorizationLevel.Function, "post", Route = null)]HttpRequestMessage req, TraceWriter log)
         {
+            log.Info($"start EvalEnbebedCodes {DateTime.UtcNow.ToString()}");
             IActionsProvider myActions = ActionProviderFactory.GetActionProvider();
             dynamic BodyData = await req.Content.ReadAsAsync<object>();
             UnifiedProcessStatus manifest = BodyData.ToObject<UnifiedProcessStatus>();
@@ -152,19 +153,21 @@ namespace WaterMarkingActions
                 manifest.EmbebedCodesList = UpdatedInfo;
                 //
                 myActions.UpdateUnifiedProcessStatus(manifest);
-
-                return req.CreateResponse(HttpStatusCode.OK, manifest, JsonMediaTypeFormatter.DefaultMediaType);
+                
             }
             catch (Exception X)
             {
                 log.Error($"[{manifest.JobStatus.JobID}] Error on EvalEnbebedCodes {X.Message}");
                 return req.CreateResponse(HttpStatusCode.InternalServerError, manifest, JsonMediaTypeFormatter.DefaultMediaType);
             }
-           
+
+            log.Info($"finish EvalEnbebedCodes {DateTime.UtcNow.ToString()}");
+            return req.CreateResponse(HttpStatusCode.OK, manifest, JsonMediaTypeFormatter.DefaultMediaType);
         }
         [FunctionName("CreateWaterMArkedAssets")]
         public static async Task<HttpResponseMessage> CreateWaterMArkedAssets([HttpTrigger(AuthorizationLevel.Function, "post", Route = null)]HttpRequestMessage req, TraceWriter log)
         {
+            log.Info($"start CreateWaterMArkedAssets {DateTime.UtcNow.ToString()}");
             IActionsProvider myActions = ActionProviderFactory.GetActionProvider();
 
             dynamic BodyData = await req.Content.ReadAsAsync<object>();
@@ -175,65 +178,65 @@ namespace WaterMarkingActions
 
             try
             {
-
-            
-            //List only Finished without AsstID
-            foreach (var watermarkedInfo in manifest.EmbebedCodesList)
-            {
-                if ((watermarkedInfo.State == ExecutionStatus.Finished) && (string.IsNullOrEmpty(watermarkedInfo.AssetID)))
+                IAMSProvider help = AMSProviderFactory.CreateAMSProvider();
+                //List only Finished without AsstID
+                foreach (var watermarkedInfo in manifest.EmbebedCodesList)
                 {
-                    //Create new asset per embbeded code
-                    IAMSProvider help = AMSProviderFactory.CreateAMSProvider();
-                    var xx = await help.CreateEmptyWatermarkedAsset(manifest.JobStatus.JobID, ParentAssetID, watermarkedInfo.EmbebedCodeValue);
-                    watermarkedInfo.AssetID = xx.WMAssetId;
-                    log.Info($"[{manifest.JobStatus.JobID}] Watermarket created form {manifest.JobStatus.JobID} with assett id {watermarkedInfo.AssetID}");
-                    ////Inject all Renders on New asset
-                    foreach (var render in myActions.GetWaterMarkedRenders(ParentAssetID, watermarkedInfo.EmbebedCodeValue))
+                    if ((watermarkedInfo.State == ExecutionStatus.Finished) && (string.IsNullOrEmpty(watermarkedInfo.AssetID)))
                     {
-                        string url = render.MP4URL;
-                        var r = await help.AddWatermarkedMediaFiletoAsset(watermarkedInfo.AssetID, watermarkedInfo.EmbebedCodeValue, url);
-                        log.Info($"[{manifest.JobStatus.JobID}] AddWatermarkedMediaFiletoAsset {r.Status}");
-                        if (r.Status != "MMRK File Added")
+                        //Create new asset per embbeded code
+                        //IAMSProvider help = AMSProviderFactory.CreateAMSProvider();
+                        var xx = await help.CreateEmptyWatermarkedAsset(manifest.JobStatus.JobID, ParentAssetID, watermarkedInfo.EmbebedCodeValue);
+                        watermarkedInfo.AssetID = xx.WMAssetId;
+                        log.Info($"[{manifest.JobStatus.JobID}] Watermarket created form {manifest.JobStatus.JobID} with assett id {watermarkedInfo.AssetID}");
+                        ////Inject all Renders on New asset
+                        foreach (var render in myActions.GetWaterMarkedRenders(ParentAssetID, watermarkedInfo.EmbebedCodeValue))
                         {
-                            //Error
-                            watermarkedInfo.State = ExecutionStatus.Error;
-                            watermarkedInfo.Details = $"Error adding {render.RenderName} deatils: {r.StatusMessage}";
-                            //Delete Asset
-                            help.DeleteAsset(watermarkedInfo.AssetID);
-                            watermarkedInfo.AssetID = "";
-                            log.Info($"[{manifest.JobStatus.JobID}] Asset deleted  {r.Status}");
-                            //Abort
-                            break;
+                            string url = render.MP4URL;
+                            var r = await help.AddWatermarkedMediaFiletoAsset(watermarkedInfo.AssetID, watermarkedInfo.EmbebedCodeValue, url);
+                            log.Info($"[{manifest.JobStatus.JobID}] AddWatermarkedMediaFiletoAsset {r.Status}");
+                            if (r.Status != "MMRK File Added")
+                            {
+                                //Error
+                                watermarkedInfo.State = ExecutionStatus.Error;
+                                watermarkedInfo.Details = $"Error adding {render.RenderName} deatils: {r.StatusMessage}";
+                                //Delete Asset
+                                help.DeleteAsset(watermarkedInfo.AssetID);
+                                watermarkedInfo.AssetID = "";
+                                log.Info($"[{manifest.JobStatus.JobID}] Asset deleted  {r.Status}");
+                                //Abort
+                                break;
+                            }
+                            log.Info($"[{manifest.JobStatus.JobID}] AddWatermarkedMediaFiletoAsset {r.Status}");
                         }
-                        log.Info($"[{manifest.JobStatus.JobID}] AddWatermarkedMediaFiletoAsset {r.Status}");
+                        //Create New Manifest and set it as primary file.
+                        await help.GenerateManifest(watermarkedInfo.AssetID);
                     }
-                    //Create New Manifest and set it as primary file.
-                    await help.GenerateManifest(watermarkedInfo.AssetID);
+                    UpdatedInfo.Add(watermarkedInfo);
                 }
-                UpdatedInfo.Add(watermarkedInfo);
-            }
-            //Replace New WaterMarkAssetInfo
-            manifest.EmbebedCodesList = UpdatedInfo;
+                //Replace New WaterMarkAssetInfo
+                manifest.EmbebedCodesList = UpdatedInfo;
 
-            myActions.UpdateUnifiedProcessStatus(manifest);
+                myActions.UpdateUnifiedProcessStatus(manifest);
             }
             catch (Exception X)
             {
                 log.Error($"{X.Message}");
                 return req.CreateResponse(HttpStatusCode.InternalServerError, X, JsonMediaTypeFormatter.DefaultMediaType);
             }
+            log.Info($"finish CreateWaterMArkedAssets {DateTime.UtcNow.ToString()}");
             return req.CreateResponse(HttpStatusCode.OK, manifest, JsonMediaTypeFormatter.DefaultMediaType);
         }
 
         [FunctionName("EvalJobProgress")]
         public static async Task<HttpResponseMessage> EvalJobProgress([HttpTrigger(AuthorizationLevel.Function, "post", Route = null)]HttpRequestMessage req, TraceWriter log)
         {
-
+            log.Info($"start EvalJobProgress {DateTime.UtcNow.ToString()}");
             dynamic BodyData = await req.Content.ReadAsAsync<object>();
             UnifiedProcessStatus myProcessStatus = BodyData.ToObject<UnifiedProcessStatus>();
             IActionsProvider myActions = ActionProviderFactory.GetActionProvider();
             //Check AssetStatus
-
+            log.Info($"[{myProcessStatus.JobStatus.JobID}] Job Status: {myProcessStatus.JobStatus.State.ToString()} / Asset Status {myProcessStatus.AssetStatus.State.ToString()}");
             switch (myProcessStatus.AssetStatus.State)
             {
                 case ExecutionStatus.Error:
@@ -281,7 +284,7 @@ namespace WaterMarkingActions
                     log.Info($"Updated Manifest JOB Status {myProcessStatus.JobStatus.State.ToString()}");
                     break;
             }
-
+            log.Info($"finish EvalJobProgress {DateTime.UtcNow.ToString()}");
             return req.CreateResponse(HttpStatusCode.OK, myProcessStatus, JsonMediaTypeFormatter.DefaultMediaType);
         }
         [FunctionName("GetUnifiedProcessStatus")]
@@ -415,7 +418,6 @@ namespace WaterMarkingActions
             try
             {
                 var r = await k.DeletePods(prefixName, "Succeeded");
-                //var r = await k.DeletePods(JobId, prefixName, new List<string>());
 
                 return req.CreateResponse(r.Code, r, JsonMediaTypeFormatter.DefaultMediaType);
             }

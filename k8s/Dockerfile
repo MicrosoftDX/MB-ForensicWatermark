@@ -1,6 +1,6 @@
 #########################
 
-FROM centos:7.3.1611 as centos-patched
+FROM centos:7.4.1708 as centos-patched
 
 RUN yum update -y \
 	&& yum install -y tar gzip glibc.i686 libunwind libicu
@@ -9,12 +9,12 @@ RUN yum update -y \
 
 #########################
 
-FROM centos-patched as centos-dotnetcore-sdk
+FROM centos-patched as centos-dotnetcore2-sdk
 
 WORKDIR /root
 
-ENV SDKURL=https://download.microsoft.com/download/E/7/8/E782433E-7737-4E6C-BFBF-290A0A81C3D7/dotnet-dev-centos-x64.1.0.4.tar.gz \
-	SDKTGZ=dotnet-dev-centos-x64.1.0.4.tar.gz
+ENV SDKURL=https://download.microsoft.com/download/1/1/5/115B762D-2B41-4AF3-9A63-92D9680B9409/dotnet-sdk-2.1.4-linux-x64.tar.gz \
+	SDKTGZ=dotnet-sdk-2.1.4-linux-x64.tar.gz
 
 RUN mkdir -p /opt/dotnet \
 	&& mkdir /root/installers \
@@ -26,10 +26,10 @@ RUN mkdir -p /opt/dotnet \
 
 #########################
 
-FROM centos-patched as dotnetcore-on-centos-runtime
+FROM centos-patched as dotnetcore2-on-centos-runtime
 
-ENV RUNTIMEURL=https://download.microsoft.com/download/D/7/A/D7A9E4E9-5D25-4F0C-B071-210CB8267943/dotnet-centos-x64.1.1.2.tar.gz \
-    RUNTIMETGZ=dotnet-centos-x64.1.1.2.tar.gz
+ENV RUNTIMEURL=https://download.microsoft.com/download/1/1/0/11046135-4207-40D3-A795-13ECEA741B32/dotnet-runtime-2.0.5-linux-x64.tar.gz \
+    RUNTIMETGZ=dotnet-runtime-2.0.5-linux-x64.tar.gz
 
 RUN mkdir -p /opt/dotnet \
 	&& mkdir /root/installers && curl -SL "${RUNTIMEURL}" --output "/root/installers/${RUNTIMETGZ}" \
@@ -39,7 +39,7 @@ RUN mkdir -p /opt/dotnet \
 
 #########################
 
-FROM centos-dotnetcore-sdk as centos-dotnetcore-sdk-builder
+FROM centos-dotnetcore2-sdk as centos-dotnetcore2-sdk-builder
 
 WORKDIR /root/embedder.src
 
@@ -49,11 +49,11 @@ ENV HOME=/root \
 COPY embedder.src .
 
 RUN dotnet restore --runtime centos.7-x64 \
-	&& dotnet publish --framework netcoreapp1.1 --runtime centos.7-x64 -c Release --output publish
+	&& dotnet publish --framework netcoreapp2.0 --runtime centos.7-x64 -c Release --output publish
 
 #########################
 
-FROM dotnetcore-on-centos-runtime as nexguard-finalimage
+FROM dotnetcore2-on-centos-runtime as nexguard-finalimage
 
 ARG PREPROCESSOR_VERSION=4.7-123654
 ARG EMBEDDER_VERSION=3.5-117278
@@ -69,7 +69,7 @@ ENV HOME=/root \
 	DOTNET_CLI_TELEMETRY_OPTOUT=1
 
 COPY nexguard-installers/ ${HOME}/
-COPY --from=centos-dotnetcore-sdk-builder ${HOME}/embedder.src/publish /root/${APPNAME}
+COPY --from=centos-dotnetcore2-sdk-builder ${HOME}/embedder.src/publish /root/${APPNAME}
 
 WORKDIR ${HOME}
 

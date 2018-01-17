@@ -533,6 +533,8 @@ namespace ActionsProvider
             string ymal = System.IO.File.ReadAllText(path);
 
             ymal = ymal.Replace("[JOBNAME]", "allinone-job-" + JobID);
+            //Same JOb ID for all jobs and pods
+            ymal= ymal.Replace("[JOBID]",  JobID.Substring(0,JobID.IndexOf("-")));
 
             ymal = ymal.Replace("[IMAGENAME]", imagename);
 
@@ -550,6 +552,10 @@ namespace ActionsProvider
             // Submite JOB
             IK8SClient k8sClient = K8SClientFactory.Create();
             var rs = await k8sClient.SubmiteK8SJob(ymal);
+            if (!rs.IsSuccessStatusCode)
+            {
+                Trace.TraceError($"SubmiteJobK8S : {jobtxt}");
+            }
             return rs;
 
         }
