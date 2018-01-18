@@ -33,8 +33,8 @@ namespace ActionsProvider
         CloudTable _AssetStatus;
         CloudTable _WaterMarkedAssetInfo;
 
-
-        public ActionProvider(string strConn)
+        int _embeddedmessagecount = 10;
+        public ActionProvider(string strConn, int embeddedmessagecount)
         {
             storageAccount = CloudStorageAccount.Parse(strConn);
             tableClient = storageAccount.CreateCloudTableClient();
@@ -46,6 +46,8 @@ namespace ActionsProvider
             _MMRKSttausTable.CreateIfNotExists();
             _AssetStatus.CreateIfNotExists();
             _WaterMarkedAssetInfo.CreateIfNotExists();
+
+            _embeddedmessagecount = embeddedmessagecount;
         }
 
         public UnifiedResponse.WaterMarkedRender UpdateWaterMarkedRender(UnifiedResponse.WaterMarkedRender renderData)
@@ -102,40 +104,54 @@ namespace ActionsProvider
             CloudQueueClient queueClient = storageAccount.CreateCloudQueueClient();
             CloudQueue queue = queueClient.GetQueueReference("embeddernotification");
 
-            foreach (CloudQueueMessage message in await queue.GetMessagesAsync(5, TimeSpan.FromMinutes(10), null, null))
+            //Process more than 32 message
+            for (int i = 0; i < _embeddedmessagecount; i++)
             {
-                Trace.TraceInformation($"[{JobId}] {message.AsString}");
-                try
+                bool swMetaLoop = true;
+                foreach (CloudQueueMessage message in await queue.GetMessagesAsync(_embeddedmessagecount, TimeSpan.FromMinutes(10), null, null))
                 {
-                    NotificationEmbedder rawdata = Newtonsoft.Json.JsonConvert.DeserializeObject<NotificationEmbedder>(message.AsString);
-                    Trace.TraceInformation($"JobId={JobId} and messageJobId={rawdata.JobID}");
-                    // This message if for JOB
-                    WaterMarkedRender data = GetWaterMarkedRender(rawdata.AssetID, rawdata.EmbebedCode, rawdata.FileName);
-                    string url = data.MP4URL;
-                    //Adding Idempotent control for exceptional case of recieve multiple time 
-                    //notifications from K8S container (fail on container)
-                    if (data.State == ExecutionStatus.Running)
+                    swMetaLoop = false;
+                    //Trace.TraceInformation($"[{JobId}] {message.AsString}");
+                    try
                     {
-                        //WatermarkRender is on right state(first message)
-                        data = new WaterMarkedRender(rawdata, url);
-                        var outputData = UpdateWaterMarkedRender(data);
-                        Trace.TraceInformation($"{JobId} processesd Message {rawdata.Status} ");
+                        NotificationEmbedder rawdata = Newtonsoft.Json.JsonConvert.DeserializeObject<NotificationEmbedder>(message.AsString);
+                        Trace.TraceInformation($"JobId={JobId} and messageJobId={rawdata.JobID}");
+                        // This message if for JOB
+                        WaterMarkedRender data = GetWaterMarkedRender(rawdata.AssetID, rawdata.EmbebedCode, rawdata.FileName);
+                        string url = data.MP4URL;
+                        //Adding Idempotent control for exceptional case of recieve multiple time 
+                        //notifications from K8S container (fail on container)
+                        if (data.State == ExecutionStatus.Running)
+                        {
+                            //WatermarkRender is on right state(first message)
+                            data = new WaterMarkedRender(rawdata, url);
+                            var outputData = UpdateWaterMarkedRender(data);
+                            Trace.TraceInformation($"{JobId} processesd Message {rawdata.Status} ");
+                        }
+                        else
+                        {
+                            //poison message, means Embbedecode was already porcessed
+                            Trace.TraceInformation($"{rawdata.JobID} Idenpotent Message Control  {message.AsString}");
+                            await SendToDeadLetterQueue(queueClient, message.AsString);
+                        }
                     }
-                    else
+                    catch (Exception X)
                     {
-                        //poison message, means Embbedecode was already porcessed
-                        Trace.TraceInformation($"{rawdata.JobID} Idenpotent Message Control  {message.AsString}");
+                        Trace.TraceError($"[{JobId}] EvalPEmbeddedNotifications Error: {X.Message}");
                         await SendToDeadLetterQueue(queueClient, message.AsString);
                     }
-                }
-                catch (Exception X)
-                {
-                    Trace.TraceError($"[{JobId}] EvalPEmbeddedNotifications Error: {X.Message}");
-                    await SendToDeadLetterQueue(queueClient, message.AsString);
+
+                    await queue.DeleteMessageAsync(message);
+                    nNotification += 1;
                 }
 
-                await queue.DeleteMessageAsync(message);
-                nNotification += 1;
+                //No more Message
+                if (swMetaLoop)
+                {
+                    Trace.TraceInformation($"[{JobId}] No more messages");
+                    break;
+                }
+                
             }
             return nNotification;
         }
@@ -435,13 +451,18 @@ namespace ActionsProvider
                 var wmrList = wmrTable.ExecuteQuery(query);
                 if (wmrList != null)
                 {
-                    if (wmrList.Where(m => m.State == ExecutionStatus.Error.ToString()).Count() > 0)
+                    var wmErrorList = wmrList.Where(m => m.State == ExecutionStatus.Error.ToString());
+                    if (wmErrorList.Count() > 0)
                     {
                         //Error
                         currentWaterMarkInfo.State = ExecutionStatus.Error;
                         //Update EmbebedCode
                         currentWaterMarkInfo.State = ExecutionStatus.Error;
-                        currentWaterMarkInfo.Details = $"Render with errors";
+                        currentWaterMarkInfo.Details = "";
+                        foreach (var render in wmErrorList)
+                        {
+                            currentWaterMarkInfo.Details += $"{render.EmbebedCodeValue}: {render.Details} {Environment.NewLine}";
+                        }
                     }
                     else
                     {
