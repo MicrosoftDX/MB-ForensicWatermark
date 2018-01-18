@@ -1,0 +1,38 @@
+#########################
+
+FROM centos:7.4.1708 as centos-patched
+
+RUN yum update -y \
+	&& yum install -y tar gzip glibc.i686 libunwind libicu
+
+# Linted with http://hadolint.lukasmartinelli.ch/
+
+#########################
+
+FROM centos-patched as nexguard-license-tester
+
+WORKDIR /root
+
+ENV archive=SafeNet_LinuxLicenseServer_8.6.0054.tar.gz 
+
+COPY nexguard-installers/${archive} /root/${archive}
+
+RUN tar zxvf ./${archive} -C /usr/local/bin && rm ./${archive}
+
+CMD [ "/usr/local/bin/lsmon", "nextguardlicense.westeurope.cloudapp.azure.com" ]
+
+#########################
+
+# ssh -i /mnt/c/Users/chgeuer/Java/keys/dcos.openssh.private chgeuer@nextguardlicense.westeurope.cloudapp.azure.com
+# scp -i /mnt/c/Users/chgeuer/Java/keys/dcos.openssh.private chgeuer@nextguardlicense.westeurope.cloudapp.azure.com:/home/chgeuer/SafeNet_LinuxLicenseServer_8.6.0054.tar.gz .
+# scp -i /mnt/c/Users/chgeuer/Java/keys/dcos.openssh.private chgeuer@nextguardlicense.westeurope.cloudapp.azure.com:/home/chgeuer/SafeNetAuthorizationToolCL-x86_64.tar.gz .
+# scp -i /mnt/c/Users/chgeuer/Java/keys/dcos.openssh.private /mnt/c/github/chgeuer/MB-ForensicWatermark.public/k8s/licenses/PayTVPreProcessorVideo.lic chgeuer@nextguardlicense.westeurope.cloudapp.azure.com:/home/chgeuer/
+# ssh -i /mnt/c/Users/chgeuer/Java/keys/dcos.openssh.private chgeuer@nextguardlicense.westeurope.cloudapp.azure.com ls -als ~
+# ssh -i /mnt/c/Users/chgeuer/Java/keys/dcos.openssh.private chgeuer@nextguardlicense.westeurope.cloudapp.azure.com sudo /usr/local/bin/lserv
+# ssh -i /mnt/c/Users/chgeuer/Java/keys/dcos.openssh.private chgeuer@nextguardlicense.westeurope.cloudapp.azure.com /usr/local/bin/lslic -F /home/chgeuer/PayTVPreProcessorVideo.lic
+# ssh -i /mnt/c/Users/chgeuer/Java/keys/dcos.openssh.private chgeuer@nextguardlicense.westeurope.cloudapp.azure.com /usr/local/bin/lsmon 127.0.0.1
+# ssh -i /mnt/c/Users/chgeuer/Java/keys/dcos.openssh.private chgeuer@nextguardlicense.westeurope.cloudapp.azure.com /usr/local/bin/lsmon nextguardlicense.westeurope.cloudapp.azure.com
+# docker build --tag nextguard-licensetester --file Dockerfile.licensetester .
+# docker run -it --rm --entrypoint=/usr/local/bin/lsmon nextguard-licensetester:latest nextguardlicense.westeurope.cloudapp.azure.com
+
+#########################

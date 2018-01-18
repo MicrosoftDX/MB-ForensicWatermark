@@ -11,7 +11,6 @@ namespace embedder
     using System.IO;
     using System.Linq;
     using System.Security.Cryptography;
-    using System.Text;
     using System.Threading.Tasks;
 
     using global::Microsoft.WindowsAzure.Storage;
@@ -158,8 +157,8 @@ namespace embedder
 
             await LargeFileUploaderUtils.ForEachAsync(
                 source: missingBlocks,
-                parallelUploads: 4,
-                body: blockMetadata => uploadBlockAsync(blockMetadata, s));
+                parallelTasks: 4,
+                task: blockMetadata => uploadBlockAsync(blockMetadata, s));
 
             await ExecuteUntilSuccessAsync(async () =>
             {
@@ -252,19 +251,19 @@ namespace embedder
             }
         }
 
-        internal static Task ForEachAsync<T>(this IEnumerable<T> source, int parallelUploads, Func<T, Task> body)
+        internal static Task ForEachAsync<T>(this IEnumerable<T> source, int parallelTasks, Func<T, Task> task)
         {
             return Task.WhenAll(
                 Partitioner
                 .Create(source)
-                .GetPartitions(parallelUploads)
+                .GetPartitions(parallelTasks)
                 .Select(partition => Task.Run(async () =>
                 {
                     using (partition)
                     {
                         while (partition.MoveNext())
                         {
-                            await body(partition.Current);
+                            await task(partition.Current);
                         }
                     }
                 })));
