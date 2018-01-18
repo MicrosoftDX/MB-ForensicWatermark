@@ -10,7 +10,13 @@ namespace ActionsProvider
        public static IActionsProvider GetActionProvider()
         {
             string Storageconn = System.Configuration.ConfigurationManager.AppSettings["Storageconn"];
-            return new ActionProvider(Storageconn);
+            int embeddedmessagecount =int.Parse( System.Configuration.ConfigurationManager.AppSettings["embeddedmessagecount"] ?? "10");
+            if (embeddedmessagecount > 32)
+            {
+                embeddedmessagecount = 32;
+            }
+               
+            return new ActionProvider(Storageconn, embeddedmessagecount);
         }
     }
 }
