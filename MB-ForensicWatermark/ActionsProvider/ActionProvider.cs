@@ -451,13 +451,18 @@ namespace ActionsProvider
                 var wmrList = wmrTable.ExecuteQuery(query);
                 if (wmrList != null)
                 {
-                    if (wmrList.Where(m => m.State == ExecutionStatus.Error.ToString()).Count() > 0)
+                    var wmErrorList = wmrList.Where(m => m.State == ExecutionStatus.Error.ToString());
+                    if (wmErrorList.Count() > 0)
                     {
                         //Error
                         currentWaterMarkInfo.State = ExecutionStatus.Error;
                         //Update EmbebedCode
                         currentWaterMarkInfo.State = ExecutionStatus.Error;
-                        currentWaterMarkInfo.Details = $"Render with errors";
+                        currentWaterMarkInfo.Details = "";
+                        foreach (var render in wmErrorList)
+                        {
+                            currentWaterMarkInfo.Details += $"{render.EmbebedCodeValue}: {render.Details} {Environment.NewLine}";
+                        }
                     }
                     else
                     {
