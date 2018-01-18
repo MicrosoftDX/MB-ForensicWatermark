@@ -106,13 +106,20 @@ namespace embedder
                 stdout($"***Finish Preprocessor {DateTime.Now.ToString()}");
             }
 
+            const int parallelEmbedderTasks = 5;
+
             stdout($"****Start Embedder {DateTime.Now.ToString()}");
             var embedderData = Program.DetermineEmbedderJobs(job);
-            var embedderTasks = embedderData.Select(_ => Program.RunEmbedderAsync(_, stdout, stderr));
-            await Task.WhenAll(embedderTasks);
+            await embedderData.ForEachAsync(
+                parallelTasks: parallelEmbedderTasks, 
+                task: _ => Program.RunEmbedderAsync(_, stdout, stderr));
+
+            // var embedderTasks = embedderData.Select(_ => Program.RunEmbedderAsync(_, stdout, stderr));
+            // await Task.WhenAll(embedderTasks);
+
             stdout($"****Finish Embedder {DateTime.Now.ToString()}");
 
-            #region Delete all video files from pod filesystem
+            #region Delete all MMRK files from pod filesystem
 
             foreach (var pd in preprocessorData)
             {
@@ -126,22 +133,6 @@ namespace embedder
                         if (pd.MmrkFile.Exists)
                         {
                             pd.MmrkFile.Delete();
-                        }
-                    });
-            }
-
-            foreach (var ed in embedderData)
-            {
-                Policy
-                    .Handle<Exception>()
-                    .WaitAndRetry(
-                        retryCount: 5, 
-                        sleepDurationProvider: attempt => TimeSpan.FromSeconds(1))
-                    .Execute(() =>
-                    {
-                        if (ed.WatermarkedFile.Exists)
-                        {
-                            ed.WatermarkedFile.Delete();
                         }
                     });
             }
@@ -291,37 +282,11 @@ namespace embedder
                 stdout($"***Start PREPROCESSOR2  {DateTime.Now.ToString()}");
 
                 output = await Utils.RunProcessAsync(
-                   prefix: "PREPROCESSOR1",
+                   prefix: "PREPROCESSOR2",
                    additionalEnvironment: new Dictionary<string, string> { { "LD_LIBRARY_PATH", "/usr/share/nexguardescreener-preprocessor/" } },
                    fileName: "/usr/share/nexguardescreener-preprocessor/NGS_Preprocessor",
-                   //Original
-                   //arguments: new[] {
-                   //     $"--infile {_.LocalFile.FullName}",
-                   //     $"--stats {_.StatsFile.FullName}",
-                   //     $"--outfile {_.MmrkFile.FullName}",
-                   //     $"--pass 2",
-                   //     $"--vbitrate {_.VideoBitrate}", $"--gopsize {_.GOPSize}",
-                   //     string.IsNullOrEmpty(_.VideoFilter) ? "" : $"--x264encopts --video-filter {_.VideoFilter}",
-                   //     //"--bframes 2",
-                   //     //"--b-pyramid none",
-                   //     //"--b-adapt 0",
-                   //      "--keyint 60",
-                   //     "--min-keyint 60",
-                   //     "--no-scenecut"
-                   //}
-                   //TEST 2
-                   //arguments: new[] {
-                   //     $"--infile {_.LocalFile.FullName}",
-                   //     $"--stats {_.StatsFile.FullName}",
-                   //     $"--outfile {_.MmrkFile.FullName}",
-                   //     $"--pass 2",
-                   //     $"--vbitrate {(_.VideoBitrate/1000)}K",
-                   //     $"--gopsize {_.GOPSize}",
-                   //     "--x264encopts",
-                   //     "--keyint 60",
-                   //    "--min-keyint 60",
-                   //    "--no-scenecut"
-                   //}
+                   //Original arguments: new[] { $"--infile {_.LocalFile.FullName}", $"--stats {_.StatsFile.FullName}", $"--outfile {_.MmrkFile.FullName}", $"--pass 2", $"--vbitrate {_.VideoBitrate}", $"--gopsize {_.GOPSize}", string.IsNullOrEmpty(_.VideoFilter) ? "" : $"--x264encopts --video-filter {_.VideoFilter}", "--bframes 2", "--b-pyramid none", "--b-adapt 0", "--keyint 60", "--min-keyint 60", "--no-scenecut" }
+                   //TEST 2 arguments: new[] { $"--infile {_.LocalFile.FullName}", $"--stats {_.StatsFile.FullName}", $"--outfile {_.MmrkFile.FullName}", $"--pass 2", $"--vbitrate {(_.VideoBitrate/1000)}K", $"--gopsize {_.GOPSize}", "--x264encopts", "--keyint 60", "--min-keyint 60", "--no-scenecut" }
                    //TEST3
                    arguments: new[] {
                         $"--infile {_.LocalFile.FullName}",
@@ -330,10 +295,7 @@ namespace embedder
                         $"--pass 2",
                         $"--vbitrate {(_.VideoBitrate)}",
                         $"--gopsize {_.GOPSize}",
-                        "--x264encopts",
-                        "--keyint 60",
-                       "--min-keyint 60",
-                       "--no-scenecut"
+                        "--x264encopts", "--keyint 60", "--min-keyint 60", "--no-scenecut"
                    }
                 );
                 if (output.Success && _.MmrkFile.Exists)
@@ -343,7 +305,7 @@ namespace embedder
                 else
                 {
                     stderr(output.Output);
-                    stdout($"***Start  PREPROCESSOR Error Notification Message {DateTime.Now.ToString()}");
+                    stdout($"***Start PREPROCESSOR2 Error Notification Message {DateTime.Now.ToString()}");
                     var queueOutput = await _.Queue.DispatchMessage(new NotificationPreprocessor
                     {
                         AssetID = _.Job.AssetID,
@@ -369,9 +331,11 @@ namespace embedder
 
                 #region Delete MP4
 
-                // Download the input MP4 after MMRK is generated
+                // Delete the input MP4 after MMRK is generated
+                
                 if (_.LocalFile.Exists)
                 {
+                    stdout($"***Deleting {_.LocalFile.FullName} to save space");
                     _.LocalFile.Delete();
                 }
 
@@ -424,7 +388,7 @@ namespace embedder
             else
             {
                 #region Download MMRK
-                stdout($"***Start Download MMRK MMRK {DateTime.Now.ToString()}");
+                stdout($"***Start Download MMRK {_.MmrkFile.FullName} {DateTime.Now.ToString()}");
 
                 output = await _.MmmrkURL.DownloadToAsync(_.MmrkFile);
                 if (output.Success)
@@ -450,7 +414,7 @@ namespace embedder
 
                     return;
                 }
-                stdout($"***End Download MMRK MMRK {DateTime.Now.ToString()}");
+                stdout($"***End Download MMRK {DateTime.Now.ToString()}");
 
                 #endregion
             }
@@ -483,6 +447,8 @@ namespace embedder
         {
             #region Embedder
 
+            stdout($"***Start embedder task: userID={_.UserID} MMRK={_.MmrkFile}  Date={DateTime.Now.ToString()}");
+
             var embedderOutput = await Utils.RunProcessAsync(
                 prefix: "EMBEDDER",
                 fileName: "/usr/bin/NGS_SmartEmbedderCLI",
@@ -491,6 +457,9 @@ namespace embedder
                     _.UserID,
                     _.WatermarkedFile.FullName }
             );
+
+            stdout($"***NGS_SmartEmbeddeWatermarkedFilerCLI finished: userID={_.UserID} MMRK={_.MmrkFile.FullName}  Date={DateTime.Now.ToString()}");
+
             if (embedderOutput.Success)
             {
                 stdout(embedderOutput.Output);
@@ -519,7 +488,12 @@ namespace embedder
 
             #region Upload
 
+            stdout($"***Start upload userID={_.UserID} WatermarkedFile={_.WatermarkedFile.FullName}  Date={DateTime.Now.ToString()}");
+
             var uploadResult = await _.WatermarkedFile.UploadToAsync(_.WatermarkedURL);
+
+            stdout($"***Finished upload userID={_.UserID} WatermarkedFile={_.WatermarkedFile.FullName} Date={DateTime.Now.ToString()} Success={uploadResult.Success}");
+
             if (uploadResult.Success)
             {
                 var queueOutput = await _.Queue.DispatchMessage(new NotificationEmbedder
@@ -552,6 +526,25 @@ namespace embedder
                     stderr(queueOutput.Output);
                 }
             }
+
+            #endregion
+
+            #region Delete watermarked file after upload
+
+            Policy
+               .Handle<Exception>()
+               .WaitAndRetry(
+                   retryCount: 5,
+                   sleepDurationProvider: attempt => TimeSpan.FromSeconds(1))
+               .Execute(() =>
+               {
+                   if (_.WatermarkedFile.Exists)
+                   {
+                       stdout($"***Try to delete userID={_.UserID} WatermarkedFile={_.WatermarkedFile.FullName} Date={DateTime.Now.ToString()}");
+                       _.WatermarkedFile.Delete();
+                       stdout($"***Deleted userID={_.UserID} WatermarkedFile={_.WatermarkedFile.FullName} Date={DateTime.Now.ToString()}");
+                   }
+               });
 
             #endregion
         }
