@@ -295,14 +295,14 @@ namespace ActionsProvider
             {
                 case ExecutionStatus.Error:
                     newProcess.JobStatus.State = ExecutionStatus.Error;
-                    newProcess.JobStatus.Details = "MMRK Files Generation Error";
+                    newProcess.JobStatus.Details = "Invalid Asset becouse MMRK Files Generation failed";
                     newProcess.JobStatus.FinishTime = DateTime.Now;
                     newProcess.JobStatus.Duration = DateTime.Now.Subtract(newProcess.JobStatus.StartTime);
                     EmbebedStatus = ExecutionStatus.Aborted;
 
                     break;
                 case ExecutionStatus.Running:
-                    newProcess.JobStatus.Details = "MMRK Files Generation Runnig";
+                    newProcess.JobStatus.Details = "Already MMRK Files Generation Runnig";
                     newProcess.JobStatus.State = ExecutionStatus.Error;
                     newProcess.JobStatus.FinishTime = DateTime.Now;
                     newProcess.JobStatus.Duration = DateTime.Now.Subtract(newProcess.JobStatus.StartTime);
