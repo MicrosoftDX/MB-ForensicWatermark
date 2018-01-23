@@ -11,7 +11,6 @@ namespace embedder
     using System.Threading.Tasks;
     using Newtonsoft.Json;
     using Microsoft.WindowsAzure.Storage.Queue;
-    using static embedder.Utils;
     using Polly;
 
     class Program
@@ -92,10 +91,26 @@ namespace embedder
             {
                 stderr($"Could not parse the job description: {ex.Message}");
                 stderr($"JOB ==  {jobEnvironmentVariable}");
-                return -1; 
+                return -1;
             }
 
+            //EmbedderJobDTO job = JsonConvert.DeserializeObject<EmbedderJobDTO>(
+            //    File.ReadAllText(
+            //        path: @"C:\github\chgeuer\MB-ForensicWatermark.public\k8s\job.json"));
+
             #endregion
+
+            var workFolder =
+                Path.Combine("/mnt", job.JobID
+                .Replace(":", "_")
+                .Replace("/", "_"));
+
+            stdout($"Changing work directory to {workFolder}");
+
+            Directory.CreateDirectory(workFolder);
+            Environment.CurrentDirectory = workFolder;
+
+            #region MMRK Generation
 
             var preprocessorData = Program.DeterminePreprocessorJobs(job);
             foreach (var pd in preprocessorData)
@@ -106,10 +121,25 @@ namespace embedder
                 stdout($"***Finish Preprocessor {DateTime.Now.ToString()}");
             }
 
-            const int parallelEmbedderTasks = 5;
+            #endregion
+
+            #region Watermarking
+
+            Func<int> getNumberOfParallelEmbedderTasks = () =>
+            {
+                int result;
+                if (int.TryParse(Environment.GetEnvironmentVariable("PARALLELEMBEDDERS"), out result))
+                {
+                    return result;
+                }
+                return 5;
+            };
+
+            var parallelEmbedderTasks = getNumberOfParallelEmbedderTasks();
 
             stdout($"****Start Embedder {DateTime.Now.ToString()}");
             var embedderData = Program.DetermineEmbedderJobs(job);
+
             await embedderData.ForEachAsync(
                 parallelTasks: parallelEmbedderTasks, 
                 task: _ => Program.RunEmbedderAsync(_, stdout, stderr));
@@ -118,6 +148,8 @@ namespace embedder
             // await Task.WhenAll(embedderTasks);
 
             stdout($"****Finish Embedder {DateTime.Now.ToString()}");
+
+            #endregion
 
             #region Delete all MMRK files from pod filesystem
 
@@ -138,6 +170,10 @@ namespace embedder
             }
 
             #endregion
+
+            Environment.CurrentDirectory = "/";
+            stdout($"Removing work directory {workFolder}");
+            Directory.Delete(workFolder, recursive: true);
 
             return 0;
         }
@@ -172,6 +208,7 @@ namespace embedder
             if (_.RunPreprocessorAndUploadMMRK)
             {
                 #region Download MP4
+
                 stdout($"***Start Download MP4 {DateTime.Now.ToString()}");
                 output = await _.Mp4URL.DownloadToAsync(_.LocalFile);
                 if (output.Success)
@@ -202,13 +239,15 @@ namespace embedder
                 #endregion
 
                 #region Pass 1
+
                 //--x264encopts --bframes 2 --b-pyramid none --b-adapt 0 --no-scenecut
-                stdout($"*** Start PREPROCESSOR1  {DateTime.Now.ToString()}");
+                stdout($"*** Start PREPROCESSOR1 {DateTime.Now.ToString()}");
 
                 output = await Utils.RunProcessAsync(
                     prefix: "PREPROCESSOR1",
                     additionalEnvironment: new Dictionary<string, string> { { "LD_LIBRARY_PATH", "/usr/share/nexguardescreener-preprocessor/" } },
                     fileName: "/usr/share/nexguardescreener-preprocessor/NGS_Preprocessor",
+
                     //Original
                     //arguments: new[] {
                     //    $"--infile {_.LocalFile.FullName}",
@@ -223,7 +262,6 @@ namespace embedder
                     //    "--keyint 60",
                     //    "--min-keyint 60",
                     //    "--no-scenecut"
-
                     //}
 
                     //TEST 2
@@ -251,6 +289,7 @@ namespace embedder
                         "--no-scenecut"
                     }
                 );
+
                 if (output.Success && _.StatsFile.Exists)
                 {
                     stdout(output.Output);
@@ -332,7 +371,6 @@ namespace embedder
                 #region Delete MP4
 
                 // Delete the input MP4 after MMRK is generated
-                
                 if (_.LocalFile.Exists)
                 {
                     stdout($"***Deleting {_.LocalFile.FullName} to save space");
@@ -489,11 +527,8 @@ namespace embedder
             #region Upload
 
             stdout($"***Start upload userID={_.UserID} WatermarkedFile={_.WatermarkedFile.FullName}  Date={DateTime.Now.ToString()}");
-
             var uploadResult = await _.WatermarkedFile.UploadToAsync(_.WatermarkedURL);
-
             stdout($"***Finished upload userID={_.UserID} WatermarkedFile={_.WatermarkedFile.FullName} Date={DateTime.Now.ToString()} Success={uploadResult.Success}");
-
             if (uploadResult.Success)
             {
                 var queueOutput = await _.Queue.DispatchMessage(new NotificationEmbedder

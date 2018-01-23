@@ -5,6 +5,11 @@
 PREPROCESSOR_LIC="server=${PREPROCESSOR_IP}
 port=5093"
 
+cat > PayTVPreProcessorVideo.lic <<-EOF
+	server=${PREPROCESSOR_IP}
+	port=5093
+EOF
+
 PREPROCESSOR_LIC_BASE64=$(echo "${PREPROCESSOR_LIC}" | base64 --wrap=0)
 
 EMBEDDER_LICENSE_BASE64=$(cat "${EMBEDDER_LICENSE_FILE}" | base64 --wrap=0)
@@ -31,3 +36,16 @@ cat > lic.yaml <<-EOF
 EOF
 
 kubectl create -f lic.yaml
+
+# kubectl create configmap encoder-settings --from-file="NGPTV_Preprocessor.xml=${ENCODER_SETTINGS_FILE}"
+
+kubectl create configmap encoder-settings --from-file="PayTVPreProcessorVideo.lic=PayTVPreProcessorVideo.lic" --from-file="NGStreamingSE.lic=${EMBEDDER_LICENSE_FILE}" --from-file="NGPTV_Preprocessor.xml=${ENCODER_SETTINGS_FILE}" 
+
+# kubectl get configmaps encoder-settings -o yaml
+
+kubectl create secret docker-registry \
+	"${acr_name}.azurecr.io" \
+	--docker-server="${acr_name}.azurecr.io" \
+	--docker-username="${acr_name}" \
+	--docker-password="${acr_pass}" \
+	--docker-email="root@${acr_name}"
