@@ -13,7 +13,7 @@ namespace ActionsProvider.AMS
         Task<ManifestInfo> GetK8SJobManifestAsync(string AssetID, string JobID, List<string> codes);
         Task<WMAssetOutputMessage> AddWatermarkedMediaFiletoAsset(string WatermarkedAssetId, string WMEmbedCode, string MMRKURL);
         Task<WMAssetOutputMessage> CreateEmptyWatermarkedAsset(string ProcessId,string SourceAssetId, string WMEmbedCode);
-        void DeleteWatermakedBlobRenders(string AssetId);
+        void DeleteWatermakedBlobRenders(string RenderPrefix);
         Task<WMAssetOutputMessage> GenerateManifest(string SourceAssetId,bool setAsPrimary=true);
     }
 }

@@ -777,14 +777,15 @@
                                 "Content-Type": "application/json"
                               },
                               "body": {
-                                "AssetId": "@{body('ParseJobStaus')?['AssetStatus']?['AssetId']}"
+                                "AssetId": "@{body('ParseJobStaus')?['AssetStatus']?['AssetId']}",
+                                "JobId": "@{variables('JobID')}"
                               },
                               "retryPolicy": {
                                 "type": "none"
                               }
                             },
                             "runAfter": {
-                              "Wait_for_renders": [
+                              "DeleteSucceededJobPods": [
                                 "Succeeded"
                               ]
                             }

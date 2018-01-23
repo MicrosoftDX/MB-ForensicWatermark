@@ -295,14 +295,14 @@ namespace ActionsProvider
             {
                 case ExecutionStatus.Error:
                     newProcess.JobStatus.State = ExecutionStatus.Error;
-                    newProcess.JobStatus.Details = "MMRK Files Generation Error";
+                    newProcess.JobStatus.Details = "Invalid Asset becouse MMRK Files Generation failed";
                     newProcess.JobStatus.FinishTime = DateTime.Now;
                     newProcess.JobStatus.Duration = DateTime.Now.Subtract(newProcess.JobStatus.StartTime);
                     EmbebedStatus = ExecutionStatus.Aborted;
 
                     break;
                 case ExecutionStatus.Running:
-                    newProcess.JobStatus.Details = "MMRK Files Generation Runnig";
+                    newProcess.JobStatus.Details = "Already MMRK Files Generation Runnig";
                     newProcess.JobStatus.State = ExecutionStatus.Error;
                     newProcess.JobStatus.FinishTime = DateTime.Now;
                     newProcess.JobStatus.Duration = DateTime.Now.Subtract(newProcess.JobStatus.StartTime);
@@ -451,13 +451,18 @@ namespace ActionsProvider
                 var wmrList = wmrTable.ExecuteQuery(query);
                 if (wmrList != null)
                 {
-                    if (wmrList.Where(m => m.State == ExecutionStatus.Error.ToString()).Count() > 0)
+                    var wmErrorList = wmrList.Where(m => m.State == ExecutionStatus.Error.ToString());
+                    if (wmErrorList.Count() > 0)
                     {
                         //Error
                         currentWaterMarkInfo.State = ExecutionStatus.Error;
                         //Update EmbebedCode
                         currentWaterMarkInfo.State = ExecutionStatus.Error;
-                        currentWaterMarkInfo.Details = $"Render with errors";
+                        currentWaterMarkInfo.Details = "";
+                        foreach (var render in wmErrorList)
+                        {
+                            currentWaterMarkInfo.Details += $"{render.EmbebedCodeValue}: {render.Details} {Environment.NewLine}";
+                        }
                     }
                     else
                     {
