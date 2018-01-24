@@ -289,7 +289,10 @@ namespace embedder
 
                 output = await Utils.RunProcessAsync(
                     prefix: "PREPROCESSOR1",
-                    additionalEnvironment: new Dictionary<string, string> { { "LD_LIBRARY_PATH", "/usr/share/nexguardescreener-preprocessor/" } },
+                    additionalEnvironment: new Dictionary<string, string> {
+                        { "LD_LIBRARY_PATH", "/usr/share/nexguardescreener-preprocessor/" },
+                        { "TMPDIR", Environment.CurrentDirectory }
+                    },
                     fileName: "/usr/share/nexguardescreener-preprocessor/NGS_Preprocessor",
                     arguments: new[] {
                         $"--infile {_.LocalFile.FullName}",
@@ -336,7 +339,10 @@ namespace embedder
 
                 output = await Utils.RunProcessAsync(
                    prefix: "PREPROCESSOR2",
-                   additionalEnvironment: new Dictionary<string, string> { { "LD_LIBRARY_PATH", "/usr/share/nexguardescreener-preprocessor/" } },
+                   additionalEnvironment: new Dictionary<string, string> {
+                       { "LD_LIBRARY_PATH", "/usr/share/nexguardescreener-preprocessor/" },
+                       { "TMPDIR", Environment.CurrentDirectory }
+                   },
                    fileName: "/usr/share/nexguardescreener-preprocessor/NGS_Preprocessor",
                    //Original arguments: new[] { $"--infile {_.LocalFile.FullName}", $"--stats {_.StatsFile.FullName}", $"--outfile {_.MmrkFile.FullName}", $"--pass 2", $"--vbitrate {_.VideoBitrate}", $"--gopsize {_.GOPSize}", string.IsNullOrEmpty(_.VideoFilter) ? "" : $"--x264encopts --video-filter {_.VideoFilter}", "--bframes 2", "--b-pyramid none", "--b-adapt 0", "--keyint 60", "--min-keyint 60", "--no-scenecut" }
                    //TEST 2 arguments: new[] { $"--infile {_.LocalFile.FullName}", $"--stats {_.StatsFile.FullName}", $"--outfile {_.MmrkFile.FullName}", $"--pass 2", $"--vbitrate {(_.VideoBitrate/1000)}K", $"--gopsize {_.GOPSize}", "--x264encopts", "--keyint 60", "--min-keyint 60", "--no-scenecut" }
@@ -501,6 +507,9 @@ namespace embedder
             var embedderOutput = await Utils.RunProcessAsync(
                 prefix: "EMBEDDER",
                 fileName: "/usr/bin/NGS_SmartEmbedderCLI",
+                additionalEnvironment: new Dictionary<string, string> {
+                    { "TMPDIR", Environment.CurrentDirectory }
+                },
                 arguments: new[] {
                     _.MmrkFile.FullName,
                     _.UserID,
