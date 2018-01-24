@@ -12,6 +12,7 @@ namespace embedder
     using Newtonsoft.Json;
     using Microsoft.WindowsAzure.Storage.Queue;
     using Polly;
+    using System.Net.Http;
 
     class Program
     {
@@ -112,11 +113,25 @@ namespace embedder
             }
             try
             {
-                // cat juan.json | jq -c -M . | base64 --wrap=0 > juan.base64
-                var json = Encoding.UTF8.GetString(
-                    Convert.FromBase64String(jobEnvironmentVariable));
-                job = JsonConvert.DeserializeObject<EmbedderJobDTO>(json);
+                string json = null;
+                if (jobEnvironmentVariable.StartsWith("http"))
+                {
+                    var ms = new MemoryStream();
+                    using (var client = new HttpClient())
+                    using (var stream = await client.GetStreamAsync(jobEnvironmentVariable))
+                    {
+                        await stream.CopyToAsync(ms);
+                    }
+                    json = Encoding.UTF8.GetString(ms.GetBuffer());
+                }
+                else
+                {
+                    json = Encoding.UTF8.GetString(
+                        Convert.FromBase64String(jobEnvironmentVariable));
+                }
 
+                // cat juan.json | jq -c -M . | base64 --wrap=0 > juan.base64
+                job = JsonConvert.DeserializeObject<EmbedderJobDTO>(json);
                 if (job == null)
                 {
                     stderr(Category.Main, "Could not read job description from 'JOB' environment variable");
@@ -263,7 +278,7 @@ namespace embedder
 
                     return;
                 }
-                stdout(Category.DownloadMP4, "Finished Download MP4 {_.Mp4URL.AbsoluteUri}");
+                stdout(Category.DownloadMP4, $"Finished Download MP4 {_.Mp4URL.AbsoluteUri}");
 
                 #endregion
 
