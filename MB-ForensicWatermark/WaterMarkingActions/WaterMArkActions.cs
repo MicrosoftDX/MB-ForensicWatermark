@@ -267,7 +267,7 @@ namespace WaterMarkingActions
 
                     //var jobinfo = myActions.GetJobK8SDetail(myProcessStatus.JobStatus.JobID + "-1");
                     //myProcessStatus.JobStatus.Details += Newtonsoft.Json.JsonConvert.SerializeObject(jobinfo, Newtonsoft.Json.Formatting.Indented);
-                    //myActions.UpdateUnifiedProcessStatus(myProcessStatus);
+                    myActions.UpdateUnifiedProcessStatus(myProcessStatus);
 
                     break;
                 case ExecutionStatus.Finished:
@@ -484,6 +484,38 @@ namespace WaterMarkingActions
             }
            
         }
+        [FunctionName("CancelJobTimeOut")]
+        public static async Task<HttpResponseMessage> CancelJobTimeOut([HttpTrigger(AuthorizationLevel.Function, "post", Route = null)]HttpRequestMessage req, TraceWriter log, ExecutionContext context)
+        {
+            var watch = System.Diagnostics.Stopwatch.StartNew();
+            dynamic BodyData = await req.Content.ReadAsAsync<object>();
+                     
+            IActionsProvider myActions = ActionProviderFactory.GetActionProvider();
+            UnifiedProcessStatus myProcessStatus = BodyData.ToObject<UnifiedProcessStatus>();
+            try
+            {
+                myProcessStatus = myActions.GetUnifiedProcessStatus(myProcessStatus.AssetStatus.AssetId, myProcessStatus.JobStatus.JobID);
+                myProcessStatus.JobStatus.State = ExecutionStatus.Finished;
+                myProcessStatus.JobStatus.Details = $"Embedder copies time out, check copies status.";
+                myProcessStatus.JobStatus.FinishTime = DateTime.Now;
+                myProcessStatus.JobStatus.Duration = DateTime.Now.Subtract(myProcessStatus.JobStatus.StartTime);
 
+                //Update all running copies like Errro time out
+                foreach (var copy in myProcessStatus.EmbebedCodesList.Where(c=>c.State==ExecutionStatus.Running))
+                {
+                    copy.State = ExecutionStatus.Error;
+                    copy.Details = $"Timeout error: {copy.Details}";
+                }
+
+                myActions.UpdateUnifiedProcessStatus(myProcessStatus);
+            }
+            catch (Exception X)
+            {
+                return req.CreateResponse(HttpStatusCode.InternalServerError, X, JsonMediaTypeFormatter.DefaultMediaType);
+            }
+            watch.Stop();
+            log.Info($"[Time] Method EvalJobProgress {watch.ElapsedMilliseconds} [ms]");
+            return req.CreateResponse(HttpStatusCode.OK, myProcessStatus, JsonMediaTypeFormatter.DefaultMediaType);
+        }
     }
 }

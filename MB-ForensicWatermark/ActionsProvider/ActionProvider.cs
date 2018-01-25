@@ -14,6 +14,7 @@ using System.Threading.Tasks;
 using Microsoft.WindowsAzure.Storage.Queue;
 using System.Diagnostics;
 using ActionsProvider.K8S;
+using Microsoft.WindowsAzure.Storage.Blob;
 
 namespace ActionsProvider
 {
@@ -115,6 +116,7 @@ namespace ActionsProvider
                     try
                     {
                         NotificationEmbedder rawdata = Newtonsoft.Json.JsonConvert.DeserializeObject<NotificationEmbedder>(message.AsString);
+                        rawdata.JobID = rawdata.JobID.Split('-')[0];
                         Trace.TraceInformation($"JobId={JobId} and messageJobId={rawdata.JobID}");
                         // This message if for JOB
                         WaterMarkedRender data = GetWaterMarkedRender(rawdata.AssetID, rawdata.EmbebedCode, rawdata.FileName);
@@ -504,14 +506,16 @@ namespace ActionsProvider
             CloudQueueClient queueClient = storageAccount.CreateCloudQueueClient();
             CloudQueue queue = queueClient.GetQueueReference("preprocessorout");
 
-            foreach (CloudQueueMessage message in await queue.GetMessagesAsync(5, TimeSpan.FromMinutes(10), null, null))
+            foreach (CloudQueueMessage message in await queue.GetMessagesAsync(10, TimeSpan.FromMinutes(10), null, null))
             {
                 Trace.TraceInformation($"[{JobId}] {message.AsString}");
                 try
                 {
                     var jNotification = Newtonsoft.Json.Linq.JObject.Parse(message.AsString);
                     // Retrive 
-                    string jobRender = $"[{(string)jNotification["JobID"]}]{(string)jNotification["FileName"]}";
+                    string jobid = (string)jNotification["JobID"];
+                    jobid = jobid.Split('-')[0];
+                    string jobRender = $"[{jobid}]{(string)jNotification["FileName"]}";
                     var MMRK = GetMMRKStatus((string)jNotification["AssetID"], jobRender);
 
                     if ((MMRK.State == ExecutionStatus.Running))
@@ -540,7 +544,7 @@ namespace ActionsProvider
 
         #endregion
         #region K8S JOBS
-        private string GetJobYmal(string JobID, string JOBBASE64, string imagename)
+        private string GetJobYmal(string JobID, string JOBBASE64, string imagename, string PARALLELEMBEDDERS)
         {
             string path;
             if (Environment.GetEnvironmentVariable("HOME") != null)
@@ -556,25 +560,52 @@ namespace ActionsProvider
             ymal = ymal.Replace("[JOBNAME]", "allinone-job-" + JobID);
             //Same JOb ID for all jobs and pods
             ymal= ymal.Replace("[JOBID]",  JobID.Substring(0,JobID.IndexOf("-")));
-
             ymal = ymal.Replace("[IMAGENAME]", imagename);
-
+            ymal = ymal.Replace("[PARALLELEMBEDDERS]", PARALLELEMBEDDERS);
             return ymal.Replace("[JOBBASE64]", JOBBASE64);
+        }
+        string GetBlobSasUri(Microsoft.WindowsAzure.Storage.Blob.CloudBlockBlob blockBlob)
+        {
+            SharedAccessBlobPolicy sasConstraints = new SharedAccessBlobPolicy();
+            sasConstraints.SharedAccessStartTime = DateTimeOffset.UtcNow.AddMinutes(-5);
+            sasConstraints.SharedAccessExpiryTime = DateTimeOffset.UtcNow.AddHours(24);
+            sasConstraints.Permissions = SharedAccessBlobPermissions.Read;
+            string sasBlobToken = blockBlob.GetSharedAccessSignature(sasConstraints);
+            return blockBlob.Uri + sasBlobToken;
+        }
+        private string SaveBlobData(string Data, string BlobName)
+        {
+            string sas = null;
+            CloudBlobClient blobClient = storageAccount.CreateCloudBlobClient();
+            CloudBlobContainer container = blobClient.GetContainerReference("watermarktmp");
+            container.CreateIfNotExists();
+            CloudBlockBlob blockBlob = container.GetBlockBlobReference(BlobName);
+            blockBlob.UploadText(Data);
+            sas = GetBlobSasUri(blockBlob);
+            return sas;
         }
         public async Task<K8SResult> SubmiteJobK8S(ManifestInfo manifest, int subId)
         {
             //Create Yamal Job definition
+            manifest.JobID = $"{manifest.JobID}-{subId}";
             string manifesttxt = Newtonsoft.Json.JsonConvert.SerializeObject(manifest);
-            string jobbase64 = System.Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(manifesttxt), Base64FormattingOptions.None);
+            //Save JOB data on Blob Storage And Generate a SASURL
+            //string jobbase64 = System.Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(manifesttxt), Base64FormattingOptions.None);
+            //string jobbase64 = SaveJobDataBlob(manifesttxt,$"{manifest.JobID}-{subId}");
+            //string jobbase64 = SaveJobDataBlob(manifesttxt,$"{manifest.JobID}-{subId}");
+            string jobbase64 = SaveBlobData(manifesttxt,$"{manifest.JobID}");
             string imageName = System.Configuration.ConfigurationManager.AppSettings["imageName"];
-            string jobtxt = GetJobYmal(manifest.JobID + "-" + subId.ToString(), jobbase64, imageName);
+            string PARALLELEMBEDDERS = System.Configuration.ConfigurationManager.AppSettings["PARALLELEMBEDDERS"] ?? "5";
+            //string jobtxt = GetJobYmal(manifest.JobID + "-" + subId.ToString(), jobbase64, imageName, PARALLELEMBEDDERS);
+            string jobtxt = GetJobYmal(manifest.JobID, jobbase64, imageName, PARALLELEMBEDDERS);
             HttpContent ymal = new StringContent(jobtxt, Encoding.UTF8, "application/yaml");
-
+            SaveBlobData(jobtxt, $"{manifest.JobID}.ymal");
             // Submite JOB
             IK8SClient k8sClient = K8SClientFactory.Create();
             var rs = await k8sClient.SubmiteK8SJob(ymal);
             if (!rs.IsSuccessStatusCode)
             {
+                
                 Trace.TraceError($"SubmiteJobK8S : {jobtxt}");
             }
             return rs;
