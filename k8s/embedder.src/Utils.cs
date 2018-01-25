@@ -158,7 +158,7 @@ namespace embedder
                         sleepDurationProvider: attempt => TimeSpan.FromSeconds(Math.Pow(2, attempt)))
                     .ExecuteAndCaptureAsync(async () =>
                     {
-                        using (var client = new HttpClient())
+                        using (var client = new HttpClient { /* Timeout = TimeSpan.FromMinutes() */ })
                         using (var stream = await client.GetStreamAsync(blobAbsoluteUri))
                         using (var output = file.OpenWrite())
                         {
@@ -192,7 +192,7 @@ namespace embedder
                 {
                     var blockBlob = new CloudBlockBlob(blobAbsoluteUri);
 
-                    await LargeFileUploaderUtils.UploadAsync(file: file, blockBlob: blockBlob, uploadParallelism: 10);
+                    await LargeFileUploaderUtils.UploadAsync(file: file, blockBlob: blockBlob, uploadParallelism: 4);
                     // await blockBlob.UploadFromFileAsync(file.FullName);
 
                     return new ExecutionResult { Success = true, Output = $"{prefix}: Uploaded {file.FullName} to {blobAbsoluteUri.AbsoluteUri}" };
