@@ -385,13 +385,21 @@ namespace embedder
 
                 #endregion
 
-                #region Delete MP4
+                #region Delete MP4 and statistics files
 
                 // Delete the input MP4 after MMRK is generated
                 if (_.LocalFile.Exists)
                 {
                     stdout(Category.Main, $"Deleting {_.LocalFile.FullName}");
                     _.LocalFile.Delete();
+                }
+                if (_.StatsFile.Exists)
+                {
+                    _.StatsFile.Delete();
+                }
+                if (File.Exists($"{_.StatsFile.FullName}.mbtree"))
+                {
+                    File.Delete($"{_.StatsFile.FullName}.mbtree");
                 }
 
                 #endregion
