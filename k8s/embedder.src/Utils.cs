@@ -15,48 +15,22 @@ namespace embedder
     using Newtonsoft.Json;
     using Polly;
 
+    public class ExecutionResult
+    {
+        public bool Success { get; set; }
+
+        public string Output { get; set; }
+    }
+
     public static class Utils
     {
-        public class ExecutionResult
-        {
-            public bool Success{ get; set; }
+        private static readonly IImpl _impl = new AzureImpl();
 
-            public string Output { get; set; }
-        }
+        public static Task<ExecutionResult> DispatchMessage(this CloudQueue queue, INotificationMessage message) => _impl.DispatchMessage(queue, message);
 
-        private static Task<ExecutionResult> RunProcessAsync(ProcessStartInfo processStartInfo, string prefix)
-        {
-            var output = new List<string>();
+        public static Task<ExecutionResult> DownloadToAsync(this Uri blobAbsoluteUri, FileInfo file, string prefix = "") => _impl.DownloadToAsync(blobAbsoluteUri, file, prefix);
 
-            var process = new Process
-            {
-                StartInfo = processStartInfo,
-                EnableRaisingEvents = true
-            };
-            processStartInfo.RedirectStandardOutput = true;
-            processStartInfo.RedirectStandardError = true;
-            process.OutputDataReceived += (sender, data) => { if (!string.IsNullOrEmpty(data.Data)) { output.Add($"{prefix}: {data.Data}"); } };
-            process.ErrorDataReceived += (sender, data) => { if (!string.IsNullOrEmpty(data.Data)) { output.Add($"{prefix} ERR: {data.Data}"); } };
-
-            Func<Task<ExecutionResult>> RunAsync = () =>
-            {
-                var tcs = new TaskCompletionSource<ExecutionResult>();
-                process.Exited += (sender, args) =>
-                {
-                    var o = string.Join("\n", output.ToArray());
-                    tcs.SetResult(new ExecutionResult { Success = process.ExitCode == 0, Output = o });
-                    process.Dispose();
-                };
-
-                process.Start();
-                if (process.StartInfo.RedirectStandardOutput) process.BeginOutputReadLine();
-                if (process.StartInfo.RedirectStandardError) process.BeginErrorReadLine();
-
-                return tcs.Task;
-            };
-
-            return RunAsync();
-        }
+        public static Task<ExecutionResult> UploadToAsync(this FileInfo file, Uri blobAbsoluteUri, string prefix = "") => _impl.UploadToAsync(file, blobAbsoluteUri, prefix);
 
         public static async Task<ExecutionResult> RunProcessAsync(
              string fileName, string[] arguments = null,
@@ -81,7 +55,7 @@ namespace embedder
 
             try
             {
-                return await RunProcessAsync(processStartInfo, prefix);
+                return await _impl.RunProcessAsync(processStartInfo, prefix);
             }
             catch (Exception ex)
             {
@@ -102,83 +76,153 @@ namespace embedder
         }
 
         public static FileInfo AsLocalFile(this string filename) { return (filename).AsSafeFileName(); }
+
         public static FileInfo AsStatsFile(this string filename) { return filename.Replace(".mp4", ".stats").AsSafeFileName(); }
+
         public static FileInfo AsMmrkFile(this string filename) { return filename.Replace(".mp4", ".mmrk").AsSafeFileName(); }
+
         public static FileInfo AsWatermarkFileForUser(this string filename, string userid) { return (filename.Replace(".mp4", $"-{userid}.mp4")).AsSafeFileName(); }
 
         public static Uri AsUri(this string uri) { return string.IsNullOrEmpty(uri) ? null : new Uri(uri); }
+    }
 
-        public static async Task<ExecutionResult> DispatchMessage(this CloudQueue queue, INotificationMessage message)
+    public interface IImpl
+    {
+        Task<ExecutionResult> RunProcessAsync(ProcessStartInfo processStartInfo, string prefix);
+        Task<ExecutionResult> DispatchMessage(CloudQueue queue, INotificationMessage message);
+        Task<ExecutionResult> DownloadToAsync(Uri blobAbsoluteUri, FileInfo file, string prefix = "");
+        Task<ExecutionResult> UploadToAsync(FileInfo file, Uri blobAbsoluteUri, string prefix = "");
+    }
+
+    internal class AzureImpl : IImpl
         {
-            var prefix = "QUEUE";
-            if (queue == null)
+            public Task<ExecutionResult> RunProcessAsync(ProcessStartInfo processStartInfo, string prefix)
             {
-                return new ExecutionResult { Success = false, Output = $"{prefix}: ERR queue is null" };
-            }
-            try
-            {
-                await queue.AddMessageAsync(new CloudQueueMessage(JsonConvert.SerializeObject(message)));
+                var output = new List<string>();
 
-                return new ExecutionResult { Success = true, Output = $"{prefix}: Sent message to {queue.Uri.AbsoluteUri}" };
-            }
-            catch (Exception ex)
-            {
-                return new ExecutionResult { Success = false, Output = $"{prefix}: ERR {ex.Message} {queue.Uri.AbsoluteUri}" };
-            }
-        }
-
-        public static async Task<ExecutionResult> DownloadToAsync(this Uri blobAbsoluteUri, FileInfo file, string prefix = "")
-        {
-            var retryResult = await Policy
-                .Handle<Exception>()
-                .WaitAndRetryAsync(
-                    retryCount: 5,
-                    sleepDurationProvider: attempt => TimeSpan.FromSeconds(Math.Pow(2, attempt)))
-                .ExecuteAndCaptureAsync(async () =>
+                var process = new Process
                 {
-                    using (var client = new HttpClient())
-                    using (var stream = await client.GetStreamAsync(blobAbsoluteUri))
-                    using (var output = file.OpenWrite())
-                    {
-                        await stream.CopyToAsync(output);
-                    }
+                    StartInfo = processStartInfo,
+                    EnableRaisingEvents = true
+                };
+                processStartInfo.RedirectStandardOutput = true;
+                processStartInfo.RedirectStandardError = true;
+                process.OutputDataReceived += (sender, data) => { if (!string.IsNullOrEmpty(data.Data)) { output.Add($"{prefix}: {data.Data}"); } };
+                process.ErrorDataReceived += (sender, data) => { if (!string.IsNullOrEmpty(data.Data)) { output.Add($"{prefix} ERR: {data.Data}"); } };
 
+                Func<Task<ExecutionResult>> RunAsync = () =>
+                {
+                    var tcs = new TaskCompletionSource<ExecutionResult>();
+                    process.Exited += (sender, args) =>
+                    {
+                        var o = string.Join("\n", output.ToArray());
+                        tcs.SetResult(new ExecutionResult { Success = process.ExitCode == 0, Output = o });
+                        process.Dispose();
+                    };
+
+                    process.Start();
+                    if (process.StartInfo.RedirectStandardOutput) process.BeginOutputReadLine();
+                    if (process.StartInfo.RedirectStandardError) process.BeginErrorReadLine();
+
+                    return tcs.Task;
+                };
+
+                return RunAsync();
+            }
+
+            public async Task<ExecutionResult> DispatchMessage(CloudQueue queue, INotificationMessage message)
+            {
+                var prefix = "QUEUE";
+                if (queue == null)
+                {
+                    return new ExecutionResult { Success = false, Output = $"{prefix}: ERR queue is null" };
+                }
+                try
+                {
+                    await queue.AddMessageAsync(new CloudQueueMessage(JsonConvert.SerializeObject(message)));
+
+                    return new ExecutionResult { Success = true, Output = $"{prefix}: Sent message to {queue.Uri.AbsoluteUri}" };
+                }
+                catch (Exception ex)
+                {
+                    return new ExecutionResult { Success = false, Output = $"{prefix}: ERR {ex.Message} {queue.Uri.AbsoluteUri}" };
+                }
+            }
+
+            public async Task<ExecutionResult> DownloadToAsync(Uri blobAbsoluteUri, FileInfo file, string prefix = "")
+            {
+                var retryResult = await Policy
+                    .Handle<Exception>()
+                    .WaitAndRetryAsync(
+                        retryCount: 5,
+                        sleepDurationProvider: attempt => TimeSpan.FromSeconds(Math.Pow(2, attempt)))
+                    .ExecuteAndCaptureAsync(async () =>
+                    {
+                        using (var client = new HttpClient())
+                        using (var stream = await client.GetStreamAsync(blobAbsoluteUri))
+                        using (var output = file.OpenWrite())
+                        {
+                            await stream.CopyToAsync(output);
+                        }
+
+                        return new ExecutionResult
+                        {
+                            Success = true,
+                            Output = $"{prefix}: Downloaded {blobAbsoluteUri.AbsoluteUri} to {file.FullName}"
+                        };
+                    });
+
+                if (retryResult.Outcome == OutcomeType.Successful)
+                {
+                    return retryResult.Result;
+                }
+                else
+                {
                     return new ExecutionResult
                     {
-                        Success = true,
-                        Output = $"{prefix}: Downloaded {blobAbsoluteUri.AbsoluteUri} to {file.FullName}"
+                        Success = false,
+                        Output = $"{prefix}: ERR during download: \"{retryResult.FinalException.Message}\" {blobAbsoluteUri.AbsoluteUri}"
                     };
-                });
-
-            if (retryResult.Outcome == OutcomeType.Successful)
-            {
-                return retryResult.Result;
+                }
             }
-            else
+
+            public async Task<ExecutionResult> UploadToAsync(FileInfo file, Uri blobAbsoluteUri, string prefix = "")
             {
-                return new ExecutionResult
+                try
                 {
-                    Success = false,
-                    Output = $"{prefix}: ERR during download: \"{retryResult.FinalException.Message}\" {blobAbsoluteUri.AbsoluteUri}"
-                };
+                    var blockBlob = new CloudBlockBlob(blobAbsoluteUri);
+
+                    await LargeFileUploaderUtils.UploadAsync(file: file, blockBlob: blockBlob, uploadParallelism: 10);
+                    // await blockBlob.UploadFromFileAsync(file.FullName);
+
+                    return new ExecutionResult { Success = true, Output = $"{prefix}: Uploaded {file.FullName} to {blobAbsoluteUri.AbsoluteUri}" };
+                }
+                catch (Exception ex)
+                {
+                    return new ExecutionResult { Success = false, Output = $"{prefix}: ERR during upload: \"{ex.Message}\" {blobAbsoluteUri.AbsoluteUri}" };
+                }
             }
         }
 
-        public static async Task<ExecutionResult> UploadToAsync(this FileInfo file, Uri blobAbsoluteUri, string prefix = "")
-        {
-            try
-            {
-                var blockBlob = new CloudBlockBlob(blobAbsoluteUri);
+    //internal class StdoutImpl : IImpl
+    //{
+    //    private async Task<ExecutionResult> Msg(string msg)
+    //    {
+    //        // await Task.Delay(TimeSpan.FromSeconds(1));
+    //        // Console.WriteLine(msg);
+    //        return new ExecutionResult { Success = true, Output = msg };
+    //    }
 
-                await LargeFileUploaderUtils.UploadAsync(file: file, blockBlob: blockBlob, uploadParallelism: 10);
-                // await blockBlob.UploadFromFileAsync(file.FullName);
+    //    public Task<ExecutionResult> DispatchMessage(CloudQueue queue, INotificationMessage message) 
+    //        => Msg($"Dispatching {message} to {queue.Name}");
 
-                return new ExecutionResult { Success = true, Output = $"{prefix}: Uploaded {file.FullName} to {blobAbsoluteUri.AbsoluteUri}" };
-            }
-            catch (Exception ex)
-            {
-                return new ExecutionResult { Success = false, Output = $"{prefix}: ERR during upload: \"{ex.Message}\" {blobAbsoluteUri.AbsoluteUri}" };
-            }
-        }
-    }
+    //    public Task<ExecutionResult> DownloadToAsync(Uri blobAbsoluteUri, FileInfo file, string prefix = "")
+    //        => Msg($"Download {blobAbsoluteUri.AbsoluteUri} to {file.FullName}.");
+
+    //    public Task<ExecutionResult> RunProcessAsync(ProcessStartInfo processStartInfo, string prefix)
+    //        => Msg($"Run {processStartInfo.FileName} {processStartInfo.Arguments}");
+
+    //    public Task<ExecutionResult> UploadToAsync(FileInfo file, Uri blobAbsoluteUri, string prefix = "")
+    //        => Msg($"Upload {file.FullName} to {blobAbsoluteUri.AbsoluteUri}");
+    //}
 }

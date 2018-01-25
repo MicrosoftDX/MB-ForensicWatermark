@@ -11,8 +11,8 @@ namespace embedder
     using System.Threading.Tasks;
     using Newtonsoft.Json;
     using Microsoft.WindowsAzure.Storage.Queue;
-    using static embedder.Utils;
     using Polly;
+    using System.Net.Http;
 
     class Program
     {
@@ -48,18 +48,54 @@ namespace embedder
 
         #endregion
 
+        #region Logging
+
+        enum Category
+        {
+            Main = 0,
+            DownloadMP4,
+            PreprocessorStep1,
+            PreprocessorStep2,
+            UploadMMRK,
+            DownloadMMRK,
+            Embedder,
+            UploadWatermarked,
+            QueueNotifications
+        }
+
+        static readonly Dictionary<Category, string> CategoryName = new Dictionary<Category, string>
+        {
+            { Category.Main,               "Main               " },
+            { Category.DownloadMP4,        "Download MP4       " },
+            { Category.PreprocessorStep1,  "Preprocessor Step 1" },
+            { Category.PreprocessorStep2,  "Preprocessor Step 2" },
+            { Category.UploadMMRK,         "Upload MMRK        " },
+            { Category.DownloadMMRK,       "Download MMRK      " },
+            { Category.Embedder,           "Embedder           " },
+            { Category.UploadWatermarked,  "Upload Result MP4  " },
+            { Category.QueueNotifications, "Send Queue Message " }
+        };
+
+        static void stdout(Category category, string message) => print(category, message, Console.Out);
+        static void stderr(Category category, string message) => print(category, message, Console.Error);
+
+        static void print(Category category, string message, TextWriter writer)
+        {
+            writer.WriteLine($"*** {DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss Z")}: {CategoryName[category]}: {message}");
+        }
+
+        #endregion
+
         public static int Main(string[] args) => MainAsync(args).GetAwaiter().GetResult();
 
         static async Task<int> MainAsync(string[] args)
         {
-            Action<string> stdout = Console.Out.WriteLine;
-            Action<string> stderr = Console.Error.WriteLine;
 
             #region Install licenses
 
             if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("LICENSES")))
             {
-                stderr("Could not determine licenses from environment...");
+                stderr(Category.Main, "Could not determine licenses from environment...");
                 return -1;
             }
             LicenseData.InjectIntoFilesystem(environmentVariable: "LICENSES");
@@ -72,52 +108,92 @@ namespace embedder
             var jobEnvironmentVariable = Environment.GetEnvironmentVariable("JOB");
             if (string.IsNullOrEmpty(jobEnvironmentVariable))
             {
-                stderr("Could not retrieve job from 'JOB' environment variable...");
+                stderr(Category.Main, "Could not retrieve job from 'JOB' environment variable...");
                 return -1;
             }
             try
             {
-                // cat juan.json | jq -c -M . | base64 --wrap=0 > juan.base64
-                var json = Encoding.UTF8.GetString(
-                    Convert.FromBase64String(jobEnvironmentVariable));
-                job = JsonConvert.DeserializeObject<EmbedderJobDTO>(json);
+                string json = null;
+                if (jobEnvironmentVariable.StartsWith("http"))
+                {
+                    var ms = new MemoryStream();
+                    using (var client = new HttpClient())
+                    using (var stream = await client.GetStreamAsync(jobEnvironmentVariable))
+                    {
+                        await stream.CopyToAsync(ms);
+                    }
+                    json = Encoding.UTF8.GetString(ms.GetBuffer());
+                }
+                else
+                {
+                    json = Encoding.UTF8.GetString(
+                        Convert.FromBase64String(jobEnvironmentVariable));
+                }
 
+                // cat juan.json | jq -c -M . | base64 --wrap=0 > juan.base64
+                job = JsonConvert.DeserializeObject<EmbedderJobDTO>(json);
                 if (job == null)
                 {
-                    stderr("Could not read job description from 'JOB' environment variable");
+                    stderr(Category.Main, "Could not read job description from 'JOB' environment variable");
                     return -1;
                 }
             }
             catch (Exception ex)
             {
-                stderr($"Could not parse the job description: {ex.Message}");
-                stderr($"JOB ==  {jobEnvironmentVariable}");
-                return -1; 
+                stderr(Category.Main, $"Could not parse the job description: {ex.Message}");
+                stderr(Category.Main, $"JOB == {jobEnvironmentVariable}");
+                return -1;
             }
 
             #endregion
 
+            var workFolder =
+                Path.Combine("/mnt", job.JobID
+                .Replace(":", "_")
+                .Replace("/", "_"));
+
+            stdout(Category.Main, $"Changing work directory to {workFolder}");
+
+            Directory.CreateDirectory(workFolder);
+            Environment.CurrentDirectory = workFolder;
+
+            #region MMRK Generation
+
             var preprocessorData = Program.DeterminePreprocessorJobs(job);
+            stdout(Category.Main, "Start Preprocessor");
             foreach (var pd in preprocessorData)
             {
                 // run these compute-intensive jobs sequentially
-                stdout($"***Start Preprocessor {DateTime.Now.ToString()}");
                 await Program.RunPreprocessorAsync(pd, stdout, stderr);
-                stdout($"***Finish Preprocessor {DateTime.Now.ToString()}");
             }
+            stdout(Category.Main, "Finished Preprocessor");
 
-            const int parallelEmbedderTasks = 5;
+            #endregion
 
-            stdout($"****Start Embedder {DateTime.Now.ToString()}");
+            #region Watermarking
+
+            Func<int> getNumberOfParallelEmbedderTasks = () =>
+            {
+                int result;
+                if (int.TryParse(Environment.GetEnvironmentVariable("PARALLELEMBEDDERS"), out result))
+                {
+                    return result;
+                }
+                return 5;
+            };
+
+            var parallelEmbedderTasks = getNumberOfParallelEmbedderTasks();
+
+            stdout(Category.Main, "Start Embedder");
             var embedderData = Program.DetermineEmbedderJobs(job);
+
             await embedderData.ForEachAsync(
                 parallelTasks: parallelEmbedderTasks, 
                 task: _ => Program.RunEmbedderAsync(_, stdout, stderr));
 
-            // var embedderTasks = embedderData.Select(_ => Program.RunEmbedderAsync(_, stdout, stderr));
-            // await Task.WhenAll(embedderTasks);
+            stdout(Category.Main, "Finished Embedder");
 
-            stdout($"****Finish Embedder {DateTime.Now.ToString()}");
+            #endregion
 
             #region Delete all MMRK files from pod filesystem
 
@@ -138,6 +214,10 @@ namespace embedder
             }
 
             #endregion
+
+            Environment.CurrentDirectory = "/";
+            stdout(Category.Main, $"Removing work directory {workFolder}");
+            Directory.Delete(workFolder, recursive: true);
 
             return 0;
         }
@@ -165,22 +245,23 @@ namespace embedder
             return pj;
         }
         
-        private static async Task RunPreprocessorAsync(PreprocessorJob _, Action<string> stdout, Action<string> stderr)
+        private static async Task RunPreprocessorAsync(PreprocessorJob _, Action<Category, string> stdout, Action<Category, string> stderr)
         {
             ExecutionResult output;
 
             if (_.RunPreprocessorAndUploadMMRK)
             {
                 #region Download MP4
-                stdout($"***Start Download MP4 {DateTime.Now.ToString()}");
+
+                stdout(Category.DownloadMP4, $"Start Download MP4 {_.Mp4URL.AbsoluteUri}");
                 output = await _.Mp4URL.DownloadToAsync(_.LocalFile);
                 if (output.Success)
                 {
-                    stdout(output.Output);
+                    stdout(Category.DownloadMP4, output.Output);
                 }
                 else
                 {
-                    stderr(output.Output);
+                    stderr(Category.DownloadMP4, output.Output);
                     var queueOutput = await _.Queue.DispatchMessage(new NotificationPreprocessor
                     {
                         AssetID = _.Job.AssetID,
@@ -192,53 +273,27 @@ namespace embedder
                     });
                     if (!queueOutput.Success)
                     {
-                        stderr(queueOutput.Output);
+                        stderr(Category.QueueNotifications, queueOutput.Output);
                     }
 
                     return;
                 }
-                stdout($"*** End Download MP4 {DateTime.Now.ToString()}");
+                stdout(Category.DownloadMP4, $"Finished Download MP4 {_.Mp4URL.AbsoluteUri}");
 
                 #endregion
 
                 #region Pass 1
+
                 //--x264encopts --bframes 2 --b-pyramid none --b-adapt 0 --no-scenecut
-                stdout($"*** Start PREPROCESSOR1  {DateTime.Now.ToString()}");
+                stdout(Category.PreprocessorStep1, $"Start {_.LocalFile.FullName}");
 
                 output = await Utils.RunProcessAsync(
                     prefix: "PREPROCESSOR1",
-                    additionalEnvironment: new Dictionary<string, string> { { "LD_LIBRARY_PATH", "/usr/share/nexguardescreener-preprocessor/" } },
+                    additionalEnvironment: new Dictionary<string, string> {
+                        { "LD_LIBRARY_PATH", "/usr/share/nexguardescreener-preprocessor/" },
+                        { "TMPDIR", Environment.CurrentDirectory }
+                    },
                     fileName: "/usr/share/nexguardescreener-preprocessor/NGS_Preprocessor",
-                    //Original
-                    //arguments: new[] {
-                    //    $"--infile {_.LocalFile.FullName}",
-                    //    $"--stats {_.StatsFile.FullName}",
-                    //    $"--pass 1",
-                    //    $"--vbitrate {_.VideoBitrate}",
-                    //    $"--gopsize {_.GOPSize}",
-                    //    "--x264encopts",
-                    //    //"--bframes 2",
-                    //    //"--b-pyramid none",
-                    //    //"--b-adapt 0",
-                    //    "--keyint 60",
-                    //    "--min-keyint 60",
-                    //    "--no-scenecut"
-
-                    //}
-
-                    //TEST 2
-                    //arguments: new[] {
-                    //    $"--infile {_.LocalFile.FullName}",
-                    //    $"--stats {_.StatsFile.FullName}",
-                    //    $"--pass 1",
-                    //    $"--vbitrate {(_.VideoBitrate/1000)}K",
-                    //    $"--gopsize {_.GOPSize}",
-                    //    "--x264encopts",
-                    //    "--keyint 60",
-                    //    "--min-keyint 60",
-                    //    "--no-scenecut"
-                    //}
-                    //TEST 3
                     arguments: new[] {
                         $"--infile {_.LocalFile.FullName}",
                         $"--stats {_.StatsFile.FullName}",
@@ -251,13 +306,14 @@ namespace embedder
                         "--no-scenecut"
                     }
                 );
+
                 if (output.Success && _.StatsFile.Exists)
                 {
-                    stdout(output.Output);
+                    stdout(Category.PreprocessorStep1, output.Output);
                 }
                 else
                 {
-                    stderr(output.Output);
+                    stderr(Category.PreprocessorStep1, output.Output);
                     var queueOutput = await _.Queue.DispatchMessage(new NotificationPreprocessor
                     {
                         AssetID = _.Job.AssetID,
@@ -269,21 +325,24 @@ namespace embedder
                     });
                     if (!queueOutput.Success)
                     {
-                        stderr(queueOutput.Output);
+                        stderr(Category.QueueNotifications, queueOutput.Output);
                     }
 
                     return;
                 }
-                stdout($"*** End PREPROCESSOR1  {DateTime.Now.ToString()}");
+                stdout(Category.PreprocessorStep1, $"Finished {_.LocalFile.FullName}");
 
                 #endregion
 
                 #region Pass 2
-                stdout($"***Start PREPROCESSOR2  {DateTime.Now.ToString()}");
+                stdout(Category.PreprocessorStep2, $"Start {_.LocalFile.FullName}");
 
                 output = await Utils.RunProcessAsync(
                    prefix: "PREPROCESSOR2",
-                   additionalEnvironment: new Dictionary<string, string> { { "LD_LIBRARY_PATH", "/usr/share/nexguardescreener-preprocessor/" } },
+                   additionalEnvironment: new Dictionary<string, string> {
+                       { "LD_LIBRARY_PATH", "/usr/share/nexguardescreener-preprocessor/" },
+                       { "TMPDIR", Environment.CurrentDirectory }
+                   },
                    fileName: "/usr/share/nexguardescreener-preprocessor/NGS_Preprocessor",
                    //Original arguments: new[] { $"--infile {_.LocalFile.FullName}", $"--stats {_.StatsFile.FullName}", $"--outfile {_.MmrkFile.FullName}", $"--pass 2", $"--vbitrate {_.VideoBitrate}", $"--gopsize {_.GOPSize}", string.IsNullOrEmpty(_.VideoFilter) ? "" : $"--x264encopts --video-filter {_.VideoFilter}", "--bframes 2", "--b-pyramid none", "--b-adapt 0", "--keyint 60", "--min-keyint 60", "--no-scenecut" }
                    //TEST 2 arguments: new[] { $"--infile {_.LocalFile.FullName}", $"--stats {_.StatsFile.FullName}", $"--outfile {_.MmrkFile.FullName}", $"--pass 2", $"--vbitrate {(_.VideoBitrate/1000)}K", $"--gopsize {_.GOPSize}", "--x264encopts", "--keyint 60", "--min-keyint 60", "--no-scenecut" }
@@ -300,12 +359,11 @@ namespace embedder
                 );
                 if (output.Success && _.MmrkFile.Exists)
                 {
-                    stdout(output.Output);
+                    stdout(Category.PreprocessorStep2, output.Output);
                 }
                 else
                 {
-                    stderr(output.Output);
-                    stdout($"***Start PREPROCESSOR2 Error Notification Message {DateTime.Now.ToString()}");
+                    stderr(Category.PreprocessorStep2, output.Output);
                     var queueOutput = await _.Queue.DispatchMessage(new NotificationPreprocessor
                     {
                         AssetID = _.Job.AssetID,
@@ -315,39 +373,36 @@ namespace embedder
                         JobOutput = output.Output,
                         Stage = PreprocessorStage.Pass2
                     });
-                    stdout($"***End  PREPROCESSOR  Error Notification Message {DateTime.Now.ToString()}");
-
 
                     if (!queueOutput.Success)
                     {
-                        stderr(queueOutput.Output);
+                        stderr(Category.QueueNotifications, queueOutput.Output);
                     }
 
                     return;
                 }
-                stdout($"***End PREPROCESSOR2 {DateTime.Now.ToString()}");
+                stdout(Category.PreprocessorStep2, $"Finished {_.LocalFile.FullName}");
 
                 #endregion
 
                 #region Delete MP4
 
                 // Delete the input MP4 after MMRK is generated
-                
                 if (_.LocalFile.Exists)
                 {
-                    stdout($"***Deleting {_.LocalFile.FullName} to save space");
+                    stdout(Category.Main, $"Deleting {_.LocalFile.FullName}");
                     _.LocalFile.Delete();
                 }
 
                 #endregion
 
                 #region Upload MMRK
-                stdout($"***Start Upload MMRK {DateTime.Now.ToString()}");
+                stdout(Category.UploadMMRK, $"Start Upload MMRK {_.MmrkFile.FullName}");
 
                 output = await _.MmrkFile.UploadToAsync(_.MmmrkURL);
                 if (output.Success)
                 {
-                    stdout(output.Output);
+                    stdout(Category.UploadMMRK, output.Output);
                     var queueOutput = await _.Queue.DispatchMessage(new NotificationPreprocessor
                     {
                         AssetID = _.Job.AssetID,
@@ -359,12 +414,12 @@ namespace embedder
                     });
                     if (!queueOutput.Success)
                     {
-                        stderr(queueOutput.Output);
+                        stderr(Category.QueueNotifications, queueOutput.Output);
                     }
                 }
                 else
                 {
-                    stderr(output.Output);
+                    stderr(Category.UploadMMRK, output.Output);
                     var queueOutput = await _.Queue.DispatchMessage(new NotificationPreprocessor
                     {
                         AssetID = _.Job.AssetID,
@@ -376,28 +431,28 @@ namespace embedder
                     });
                     if (!queueOutput.Success)
                     {
-                        stderr(queueOutput.Output);
+                        stderr(Category.QueueNotifications, queueOutput.Output);
                     }
 
                     return;
                 }
-                stdout($"***End Upload MMRK {DateTime.Now.ToString()}");
+                stdout(Category.UploadMMRK, $"End Upload MMRK {_.MmrkFile.FullName}");
 
                 #endregion
             }
             else
             {
                 #region Download MMRK
-                stdout($"***Start Download MMRK {_.MmrkFile.FullName} {DateTime.Now.ToString()}");
+                stdout(Category.DownloadMMRK, $"Start Download MMRK {_.MmrkFile.FullName}");
 
                 output = await _.MmmrkURL.DownloadToAsync(_.MmrkFile);
                 if (output.Success)
                 {
-                    stdout(output.Output);
+                    stdout(Category.DownloadMMRK, output.Output);
                 }
                 else
                 {
-                    stderr(output.Output);
+                    stderr(Category.DownloadMMRK, output.Output);
                     var queueOutput = await _.Queue.DispatchMessage(new NotificationEmbedder
                     {
                         AssetID = _.Job.AssetID,
@@ -409,12 +464,12 @@ namespace embedder
                     });
                     if (!queueOutput.Success)
                     {
-                        stderr(queueOutput.Output);
+                        stderr(Category.QueueNotifications, queueOutput.Output);
                     }
 
                     return;
                 }
-                stdout($"***End Download MMRK {DateTime.Now.ToString()}");
+                stdout(Category.DownloadMMRK, $"Finished Download MMRK {_.MmrkFile.FullName}");
 
                 #endregion
             }
@@ -443,30 +498,33 @@ namespace embedder
             return ej;
         }
 
-        private static async Task RunEmbedderAsync(EmbedderJob _, Action<string> stdout, Action<string> stderr)
+        private static async Task RunEmbedderAsync(EmbedderJob _, Action<Category, string> stdout, Action<Category, string> stderr)
         {
             #region Embedder
 
-            stdout($"***Start embedder task: userID={_.UserID} MMRK={_.MmrkFile}  Date={DateTime.Now.ToString()}");
+            stdout(Category.Embedder, $"Start embed {_.UserID} into {_.WatermarkedFile.FullName}");
 
             var embedderOutput = await Utils.RunProcessAsync(
                 prefix: "EMBEDDER",
                 fileName: "/usr/bin/NGS_SmartEmbedderCLI",
+                additionalEnvironment: new Dictionary<string, string> {
+                    { "TMPDIR", Environment.CurrentDirectory }
+                },
                 arguments: new[] {
                     _.MmrkFile.FullName,
                     _.UserID,
                     _.WatermarkedFile.FullName }
             );
 
-            stdout($"***NGS_SmartEmbeddeWatermarkedFilerCLI finished: userID={_.UserID} MMRK={_.MmrkFile.FullName}  Date={DateTime.Now.ToString()}");
+            stdout(Category.Embedder, $"Finished embed {_.UserID} into {_.WatermarkedFile.FullName}");
 
             if (embedderOutput.Success)
             {
-                stdout(embedderOutput.Output);
+                stdout(Category.Embedder, embedderOutput.Output);
             }
             else
             {
-                stderr(embedderOutput.Output);
+                stderr(Category.Embedder, embedderOutput.Output);
                 var queueOutput = await _.Queue.DispatchMessage(new NotificationEmbedder
                 {
                     AssetID = _.Job.AssetID,
@@ -478,7 +536,7 @@ namespace embedder
                 });
                 if (!queueOutput.Success)
                 {
-                    stderr(queueOutput.Output);
+                    stderr(Category.QueueNotifications, queueOutput.Output);
                 }
 
                 return;
@@ -488,12 +546,9 @@ namespace embedder
 
             #region Upload
 
-            stdout($"***Start upload userID={_.UserID} WatermarkedFile={_.WatermarkedFile.FullName}  Date={DateTime.Now.ToString()}");
-
+            stdout(Category.UploadWatermarked, $"Start upload {_.UserID} {_.WatermarkedFile.FullName}");
             var uploadResult = await _.WatermarkedFile.UploadToAsync(_.WatermarkedURL);
-
-            stdout($"***Finished upload userID={_.UserID} WatermarkedFile={_.WatermarkedFile.FullName} Date={DateTime.Now.ToString()} Success={uploadResult.Success}");
-
+            stdout(Category.UploadWatermarked, $"Finished upload {_.UserID} {_.WatermarkedFile.FullName}");
             if (uploadResult.Success)
             {
                 var queueOutput = await _.Queue.DispatchMessage(new NotificationEmbedder
@@ -507,7 +562,7 @@ namespace embedder
                 });
                 if (!queueOutput.Success)
                 {
-                    stderr(queueOutput.Output);
+                    stderr(Category.QueueNotifications, queueOutput.Output);
                 }
             }
             else
@@ -523,7 +578,7 @@ namespace embedder
                 });
                 if (!queueOutput.Success)
                 {
-                    stderr(queueOutput.Output);
+                    stderr(Category.QueueNotifications, queueOutput.Output);
                 }
             }
 
@@ -540,9 +595,8 @@ namespace embedder
                {
                    if (_.WatermarkedFile.Exists)
                    {
-                       stdout($"***Try to delete userID={_.UserID} WatermarkedFile={_.WatermarkedFile.FullName} Date={DateTime.Now.ToString()}");
+                       stdout(Category.Main, $"Delete {_.WatermarkedFile.FullName}");
                        _.WatermarkedFile.Delete();
-                       stdout($"***Deleted userID={_.UserID} WatermarkedFile={_.WatermarkedFile.FullName} Date={DateTime.Now.ToString()}");
                    }
                });
 

@@ -1,0 +1,36 @@
+# The variables are replaced fir envsubst
+# envsubst < submit-job.yaml | kubectl create -f -
+
+apiVersion: batch/v1 
+kind: Job 
+metadata:
+  name: allinone-job-${EXTERNAL_UUID}
+spec: 
+    template: 
+        spec:
+            restartPolicy: Never
+            containers: 
+              - name: allinone-job
+                image: ${acr_name}.azurecr.io/${IMAGE_NAME}:${IMAGE_VERSION}
+                imagePullPolicy: Always
+                securityContext:
+                  privileged: true
+                env: 
+                  - name: LICENSES
+                    valueFrom:
+                        secretKeyRef:
+                          name: licenses
+                          key: licenses
+                  - name: JOB 
+                    value: ${JOB_AS_BASE64}
+                  - name: PARALLELEMBEDDERS
+                    value: "2"
+                command: [ 'dotnet', 'embedder.dll' ]
+                volumeMounts:
+                - mountPath: /mnt
+                  name: tempdisk
+            volumes:
+            - name: tempdisk
+              hostPath:
+                path: /mnt
+                type: Directory
