@@ -90,7 +90,7 @@ namespace embedder
         public static async Task<string> UploadAsync(Func<long, int, Task<byte[]>> fetchLocalData, long blobLenth,
             CloudBlockBlob blockBlob, uint uploadParallelism = DEFAULT_PARALLELISM)
         {
-            const int MAXIMUM_UPLOAD_SIZE = 4 * MB;
+            const int MAXIMUM_UPLOAD_SIZE = 100 * MB;
             if (NumBytesPerChunk > MAXIMUM_UPLOAD_SIZE) { NumBytesPerChunk = MAXIMUM_UPLOAD_SIZE; }
 
             #region Which blocks exist in the file

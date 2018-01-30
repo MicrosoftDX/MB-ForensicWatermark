@@ -309,7 +309,8 @@ namespace embedder
 
                 if (output.Success && _.StatsFile.Exists)
                 {
-                    stdout(Category.PreprocessorStep1, output.Output);
+                    stdout(Category.PreprocessorStep1, "SUCCESS");
+                    // stdout(Category.PreprocessorStep1, output.Output);
                 }
                 else
                 {
@@ -359,7 +360,8 @@ namespace embedder
                 );
                 if (output.Success && _.MmrkFile.Exists)
                 {
-                    stdout(Category.PreprocessorStep2, output.Output);
+                    stdout(Category.PreprocessorStep2, "SUCCESS");
+                    // stdout(Category.PreprocessorStep2, output.Output);
                 }
                 else
                 {
@@ -524,11 +526,11 @@ namespace embedder
                     _.WatermarkedFile.FullName }
             );
 
-            stdout(Category.Embedder, $"Finished embed {_.UserID} into {_.WatermarkedFile.FullName}");
 
             if (embedderOutput.Success)
             {
-                stdout(Category.Embedder, embedderOutput.Output);
+                stdout(Category.Embedder, $"Finished embed {_.UserID} into {_.WatermarkedFile.FullName}");
+                // stdout(Category.Embedder, embedderOutput.Output);
             }
             else
             {
