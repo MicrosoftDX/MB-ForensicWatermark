@@ -23,9 +23,9 @@ namespace ActionsProvider.K8S
 
                 throw new Exception($"Configuration Error BASSEADRESSAPI: {X.Message}");
             }
-            
+            string WatermarkStorageAccountStr = System.Configuration.ConfigurationManager.AppSettings["Storageconn"];
 
-            return new K8SClient(BASSEADRESSAPI, K8SURLTOKEN);
+            return new K8SClient(BASSEADRESSAPI, K8SURLTOKEN, WatermarkStorageAccountStr);
         }
     }
 }

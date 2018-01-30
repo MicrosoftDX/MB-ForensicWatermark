@@ -347,20 +347,22 @@ namespace ActionsProvider
                 default:
                     break;
             }
-            //Embebedecodes
-            foreach (var code in EmbebedCodeList)
+            //Embebedecodes only if Process is Running
+            if (newProcess.JobStatus.State == ExecutionStatus.Running)
             {
-                newProcess.EmbebedCodesList.Add(
-                    new UnifiedResponse.WaterMarkedAssetInfo()
-                    {
-                        ParentAssetID = AssetId,
-                        State = EmbebedStatus,
-                        EmbebedCodeValue = code,
-                        AssetID = "",
-                        Details = "Just Start"
-                    });
+                foreach (var code in EmbebedCodeList)
+                {
+                    newProcess.EmbebedCodesList.Add(
+                        new UnifiedResponse.WaterMarkedAssetInfo()
+                        {
+                            ParentAssetID = AssetId,
+                            State = EmbebedStatus,
+                            EmbebedCodeValue = code,
+                            AssetID = "",
+                            Details = "Just Start"
+                        });
+                }
             }
-
             UpdateUnifiedProcessStatus(newProcess);
 
 
@@ -492,7 +494,6 @@ namespace ActionsProvider
             _MMRKSttausTable.Execute(InsertOrReplace);
             return mmrkStatus;
         }
-        //private async Task SendToDeadLetterQueue(CloudQueueClient queueClient , CloudQueueMessage message)
         private async Task SendToDeadLetterQueue(CloudQueueClient queueClient , string messageData)
         {
             //Trace.TraceInformation($"Send to SendToDeadLetterQueue: {message.AsString}");
@@ -590,9 +591,6 @@ namespace ActionsProvider
             manifest.JobID = $"{manifest.JobID}-{subId}";
             string manifesttxt = Newtonsoft.Json.JsonConvert.SerializeObject(manifest);
             //Save JOB data on Blob Storage And Generate a SASURL
-            //string jobbase64 = System.Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(manifesttxt), Base64FormattingOptions.None);
-            //string jobbase64 = SaveJobDataBlob(manifesttxt,$"{manifest.JobID}-{subId}");
-            //string jobbase64 = SaveJobDataBlob(manifesttxt,$"{manifest.JobID}-{subId}");
             string jobbase64 = SaveBlobData(manifesttxt,$"{manifest.JobID}");
             string imageName = System.Configuration.ConfigurationManager.AppSettings["imageName"];
             string PARALLELEMBEDDERS = System.Configuration.ConfigurationManager.AppSettings["PARALLELEMBEDDERS"] ?? "5";

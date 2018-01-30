@@ -72,7 +72,8 @@
     "SubmitK8S_URL": "[concat('https://',parameters('yourapp'),'.azurewebsites.net/api/','SubmiteWaterMarkJob','?code=',parameters('HostKeys'))]",
     "Error_Asset_MMRK_URI": "[concat('https://',parameters('yourapp'),'.azurewebsites.net/api/','UpdateJob','?code=',parameters('HostKeys'))]",
     "Delete_Watermarked_Renders_URI": "[concat('https://',parameters('yourapp'),'.azurewebsites.net/api/','DeleteWatermarkedRenders','?code=',parameters('HostKeys'))]",
-    "DeleteSucceededPods_URI": "[concat('https://',parameters('yourapp'),'.azurewebsites.net/api/','DeleteSucceededPods','?code=',parameters('HostKeys'))]"
+    "DeleteSucceededPods_URI": "[concat('https://',parameters('yourapp'),'.azurewebsites.net/api/','DeleteSucceededPods','?code=',parameters('HostKeys'))]",
+    "CancelJobTimeOut_URI": "[concat('https://',parameters('yourapp'),'.azurewebsites.net/api/','CancelJobTimeOut','?code=',parameters('HostKeys'))]"
   },
   "resources": [
     {
@@ -427,11 +428,11 @@
                   "type": "If",
                   "expression": "@equals(outputs('SubmitK8S')['statusCode'], 200)",
                   "actions": {
-                    "CheckCreateNewMMRK": {
+                    "PreprocessorCreateMMRK": {
                       "type": "If",
                       "expression": "@equals(body('ParseJobStaus')?['AssetStatus']?['State'], 'Running')",
                       "actions": {
-                        "WaitAsseReady": {
+                        "WaitMMRKReady": {
                           "type": "Until",
                           "expression": "@equals(variables('switchCheck'), false)",
                           "limit": {
@@ -459,20 +460,6 @@
                               },
                               "runAfter": {
                                 "UpdateAssetMMRKStaus": [
-                                  "Succeeded"
-                                ]
-                              }
-                            },
-                            "DelayEvalAssetStatus": {
-                              "type": "Wait",
-                              "inputs": {
-                                "interval": {
-                                  "count": 30,
-                                  "unit": "Second"
-                                }
-                              },
-                              "runAfter": {
-                                "setAssetStausResult": [
                                   "Succeeded"
                                 ]
                               }
@@ -513,6 +500,27 @@
                               },
                               "runAfter": {
                                 "EvalAssetStatus": [
+                                  "Succeeded"
+                                ]
+                              }
+                            },
+                            "WaitForMoreMMRKs": {
+                              "type": "If",
+                              "expression": "@equals(variables('switchCheck'), true)",
+                              "actions": {
+                                "DelayEvalAssetStatus": {
+                                  "type": "Wait",
+                                  "inputs": {
+                                    "interval": {
+                                      "count": 60,
+                                      "unit": "Second"
+                                    }
+                                  },
+                                  "runAfter": {}
+                                }
+                              },
+                              "runAfter": {
+                                "setAssetStausResult": [
                                   "Succeeded"
                                 ]
                               }
@@ -620,7 +628,7 @@
                         }
                       }
                     },
-                    "AssetReadyPostActins": {
+                    "EmbedderCopies": {
                       "type": "Switch",
                       "expression": "@variables('AssetStatusState')",
                       "cases": {
@@ -650,11 +658,38 @@
                               "runAfter": {}
                             }
                           }
+                        },
+                        "TimeOut_error": {
+                          "case": "Running",
+                          "actions": {
+                            "Update_Job_Status_Asset_error_Timeout": {
+                              "type": "Http",
+                              "inputs": {
+                                "method": "POST",
+                                "uri": "[variables('Error_Asset_MMRK_URI')]",
+                                "headers": {
+                                  "Content-Type": "application/json"
+                                },
+                                "body": {
+                                  "Manifest": "@body('EvalAssetStatus')",
+                                  "AssetStatus": "Error",
+                                  "JobState": "Error",
+                                  "JobStateDetails": "Fail creating MMKR files, Timeout",
+                                  "WaterMarkCopiesStatus": "Aborted",
+                                  "WaterMarkCopiesStatusDetails": "Watermark copies aborted becouse MMRK fialed"
+                                },
+                                "retryPolicy": {
+                                  "type": "none"
+                                }
+                              },
+                              "runAfter": {}
+                            }
+                          }
                         }
                       },
                       "default": {
                         "actions": {
-                          "Wait_for_renders": {
+                          "WaitWatermarkCopiesRenders": {
                             "type": "Until",
                             "expression": "@equals(variables('switchCheck'), false)",
                             "limit": {
@@ -739,12 +774,26 @@
                                   ]
                                 }
                               },
-                              "Delay_for_Check_Job_Staus": {
-                                "type": "Wait",
-                                "inputs": {
-                                  "interval": {
-                                    "count": 30,
-                                    "unit": "Second"
+                              "WaitForWatermarkedCopies": {
+                                "type": "If",
+                                "expression": "@equals(variables('switchCheck'), true)",
+                                "actions": {
+                                  "AcelerateProcessOtherCopies": {
+                                    "type": "If",
+                                    "expression": "@equals(int(outputs('Evaluate_Job_Staus')['headers']?['watingCopies']), 0)",
+                                    "actions": {
+                                      "Delay_for_Check_Job_Staus": {
+                                        "type": "Wait",
+                                        "inputs": {
+                                          "interval": {
+                                            "count": 60,
+                                            "unit": "Second"
+                                          }
+                                        },
+                                        "runAfter": {}
+                                      }
+                                    },
+                                    "runAfter": {}
                                   }
                                 },
                                 "runAfter": {
@@ -768,45 +817,28 @@
                             },
                             "runAfter": {}
                           },
-                          "Delete_Watermarked_Renders": {
-                            "type": "Http",
-                            "inputs": {
-                              "method": "POST",
-                              "uri": "[variables('Delete_Watermarked_Renders_URI')]",
-                              "headers": {
-                                "Content-Type": "application/json"
-                              },
-                              "body": {
-                                "AssetId": "@{body('ParseJobStaus')?['AssetStatus']?['AssetId']}",
-                                "JobId": "@{variables('JobID')}"
-                              },
-                              "retryPolicy": {
-                                "type": "none"
+                          "CheckTimeOutCopies": {
+                            "type": "If",
+                            "expression": "@equals(variables('switchCheck'), true)",
+                            "actions": {
+                              "CancelJobTimeOut": {
+                                "type": "Http",
+                                "inputs": {
+                                  "method": "POST",
+                                  "uri": "[variables('CancelJobTimeOut_URI')]",
+                                  "headers": {
+                                    "Content-Type": "application/json"
+                                  },
+                                  "body": "@variables('CurrentManifes')",
+                                  "retryPolicy": {
+                                    "type": "none"
+                                  }
+                                },
+                                "runAfter": {}
                               }
                             },
                             "runAfter": {
-                              "DeleteSucceededJobPods": [
-                                "Succeeded"
-                              ]
-                            }
-                          },
-                          "DeleteSucceededJobPods": {
-                            "type": "Http",
-                            "inputs": {
-                              "method": "POST",
-                              "uri": "[variables('DeleteSucceededPods_URI')]",
-                              "headers": {
-                                "Content-Type": "application/json"
-                              },
-                              "body": {
-                                "JobId": "@{variables('JobID')}"
-                              },
-                              "retryPolicy": {
-                                "type": "none"
-                              }
-                            },
-                            "runAfter": {
-                              "Wait_for_renders": [
+                              "WaitWatermarkCopiesRenders": [
                                 "Succeeded"
                               ]
                             }
@@ -814,7 +846,56 @@
                         }
                       },
                       "runAfter": {
-                        "CheckCreateNewMMRK": [
+                        "PreprocessorCreateMMRK": [
+                          "Succeeded"
+                        ]
+                      }
+                    },
+                    "CleanAll": {
+                      "type": "Scope",
+                      "actions": {
+                        "Delete_Watermarked_Renders": {
+                          "type": "Http",
+                          "inputs": {
+                            "method": "POST",
+                            "uri": "[variables('Delete_Watermarked_Renders_URI')]",
+                            "headers": {
+                              "Content-Type": "application/json"
+                            },
+                            "body": {
+                              "AssetId": "@{body('ParseJobStaus')?['AssetStatus']?['AssetId']}",
+                              "JobId": "@{variables('JobID')}"
+                            },
+                            "retryPolicy": {
+                              "type": "none"
+                            }
+                          },
+                          "runAfter": {
+                            "DeleteK8SJobsAndPods": [
+                              "Succeeded"
+                            ]
+                          }
+                        },
+                        "DeleteK8SJobsAndPods": {
+                          "type": "Http",
+                          "inputs": {
+                            "method": "POST",
+                            "uri": "[variables('DeleteSucceededPods_URI')]",
+                            "headers": {
+                              "Content-Type": "application/json"
+                            },
+                            "body": {
+                              "JobId": "@{variables('JobID')}"
+                            },
+                            "retryPolicy": {
+                              "type": "none"
+                            }
+                          },
+                          "runAfter": {}
+                        }
+                      },
+                      "runAfter": {
+                        "EmbedderCopies": [
                           "Succeeded"
                         ]
                       }

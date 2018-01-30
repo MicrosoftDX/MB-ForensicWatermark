@@ -377,7 +377,7 @@ namespace ActionsProvider.AMS
         public async Task<WMAssetOutputMessage> AddWatermarkedMediaFiletoAsset(string WatermarkedAssetId, string WMEmbedCode, string MMRKURL)
         {
             WMAssetOutputMessage result = new WMAssetOutputMessage();
-
+            List<string> detailLog = new List<string>();
             if ((WatermarkedAssetId is null) || (WMEmbedCode is null) || (MMRKURL is null))
             {
                 result.Status = "ERROR";
@@ -388,20 +388,21 @@ namespace ActionsProvider.AMS
             try
             {
                 IAsset Asset = _mediaContext.Assets.Where(a => a.Id == WatermarkedAssetId).FirstOrDefault();
-
+                detailLog.Add($"GetAsset id={Asset.Id}");
                 string containerName = ConvertMediaAssetIdToStorageContainerName(Asset.Id);
-
+                detailLog.Add($"containerName = {containerName}");
                 CloudBlobContainer DestinationBlobContainer = _AMSStorageBlobClient.ListContainers().Where(n => n.Name == containerName).FirstOrDefault();
-
+                detailLog.Add($"DestinationBlobContainer = {DestinationBlobContainer}");
                 CloudBlockBlob sourceBlob = new CloudBlockBlob(new Uri(MMRKURL));
-
+                detailLog.Add($"sourceBlob = {sourceBlob.Name}");
                 // Get a reference to the destination blob (in this case, a new blob).
                 string name = HttpUtility.UrlDecode(HttpUtility.UrlDecode(Path.GetFileName(sourceBlob.Uri.AbsolutePath)));
+                detailLog.Add($"detination blob name  = {name}");
                 CloudBlockBlob destBlob = DestinationBlobContainer.GetBlockBlobReference(name);
-
+                detailLog.Add($"destBlob  = {destBlob.Name}");
                 string copyId = null;
-
                 copyId = await destBlob.StartCopyAsync(sourceBlob);
+                detailLog.Add($"Finish StartCopyAsync  = {sourceBlob.Name}");
 
                 result.MMRKURLAdded = MMRKURL;
                 result.Status = "MMRK File Added";
@@ -410,12 +411,15 @@ namespace ActionsProvider.AMS
                 result.WMAssetId = WatermarkedAssetId;
 
                 var currentFile = Asset.AssetFiles.Create(name);
+                detailLog.Add($"currentFile  = {currentFile.Name}");
                 sourceBlob.FetchAttributes();
+                detailLog.Add($"FetchAttributes");
                 currentFile.ContentFileSize = sourceBlob.Properties.Length;
-
                 currentFile.Update();
+                detailLog.Add($"currentFile.Update()");
 
                 Asset.Update();
+                detailLog.Add($"Asset.Update();");
 
                 #region Add Locator to new Media Asset
                 if (_PUBLISHWATERKEDCOPY.ToLower()=="true")
@@ -444,11 +448,12 @@ namespace ActionsProvider.AMS
                 Trace.TraceError(e.Message);
                 //throw;
                 result.MMRKURLAdded = MMRKURL;
-                result.Status = $"Copy error {e.Message}";
+                result.Status = $"Copy error";
                 //Add Blob Info to the error
-                result.StatusMessage = $"{MMRKURL} Error"; //destBlob.Name + "error";
+                result.StatusMessage = $"{MMRKURL} Error {e.Message} {String.Join(Environment.NewLine,detailLog.ToArray())}"; 
                 result.EmbedCode = WMEmbedCode;
                 result.WMAssetId = WatermarkedAssetId;
+               
             }
             finally
             {
