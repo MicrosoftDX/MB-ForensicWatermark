@@ -8,6 +8,7 @@ using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -30,63 +31,44 @@ namespace ActionsProvider.K8S
             BASSEADRESSAPI = apiUri;
             _WatermarkStorageAccount =  CloudStorageAccount.Parse(strConnWatermarkSt);
         }
-        private async Task<HttpResponseMessage> CallK8SPostAsync(HttpContent ymal, string K8SURLTOKEN, string path)
+        private bool RemoteCertificateValidationCallback(object sender, X509Certificate certificate, X509Chain chain, System.Net.Security.SslPolicyErrors sslPolicyErrors)
         {
-            ServicePointManager.ServerCertificateValidationCallback = delegate
-            {
-
-                return true;
-            };
-            ServicePointManager.Expect100Continue = true;
-            ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls
-                        | SecurityProtocolType.Tls11
-                        | SecurityProtocolType.Tls12
-                        | SecurityProtocolType.Ssl3;
-            HttpClient client = new HttpClient
-            {
-
-                BaseAddress = BASSEADRESSAPI
-            };
-            client.DefaultRequestHeaders.Accept.Clear();
-            client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", K8SURLTOKEN);
-            return await client.PostAsync(path, ymal);
+            Trace.TraceInformation($"[SSL] bypass {certificate.Subject} {certificate.Issuer} {sslPolicyErrors}");
+            return true;
         }
         private async Task<HttpResponseMessage> CallK8SXXXAsync(string K8SURLTOKEN, string pathPlusParameters, HttpMethod HttpVerb = HttpMethod.Get)
         {
-            ServicePointManager.ServerCertificateValidationCallback = delegate
-            {
-                return true;
-            };
-            ServicePointManager.Expect100Continue = true;
-            ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls
-                        | SecurityProtocolType.Tls11
-                        | SecurityProtocolType.Tls12
-                        | SecurityProtocolType.Ssl3;
-            HttpClient client = new HttpClient
-            {
-
-                BaseAddress = BASSEADRESSAPI
-            };
-            client.DefaultRequestHeaders.Accept.Clear();
-            client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", K8SURLTOKEN);
+            return await CallK8SXXXAsync(K8SURLTOKEN, pathPlusParameters, null, HttpVerb);
+        }
+        private async Task<HttpResponseMessage> CallK8SXXXAsync(string K8SURLTOKEN, string pathPlusParameters, HttpContent content, HttpMethod HttpVerb)
+        {
             HttpResponseMessage rm = null;
-            switch (HttpVerb)
+            using (var clientHandler = new HttpClientHandler())
             {
-                case HttpMethod.Post:
-                    break;
-                case HttpMethod.Get:
-                    rm = await client.GetAsync(pathPlusParameters);
-                    break;
-                case HttpMethod.Delete:
-                    rm = await client.DeleteAsync(pathPlusParameters);
-                    break;
-                default:
-                    break;
+                //Custome Certification callback
+                clientHandler.ServerCertificateCustomValidationCallback += RemoteCertificateValidationCallback;
+                using (var httpclient = new HttpClient(clientHandler))
+                {
+                    httpclient.BaseAddress = BASSEADRESSAPI;
+                    httpclient.DefaultRequestHeaders.Accept.Clear();
+                    httpclient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+                    httpclient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", K8SURLTOKEN);
+                    switch (HttpVerb)
+                    {
+                        case HttpMethod.Post:
+                            rm = await httpclient.PostAsync(pathPlusParameters, content);
+                            break;
+                        case HttpMethod.Get:
+                            rm = await httpclient.GetAsync(pathPlusParameters);
+                            break;
+                        case HttpMethod.Delete:
+                            rm = await httpclient.DeleteAsync(pathPlusParameters);
+                            break;
+                        default:
+                            break;
+                    }
+                }
             }
-
-
             return rm;
         }
         public async Task<List<KeyValuePair<string, string>>> GetK8SJobLog(string JobNamePrefix)
@@ -318,7 +300,7 @@ namespace ActionsProvider.K8S
         public async Task<K8SResult> SubmiteK8SJob(HttpContent yamalJob)
         {
             K8SResult r = new K8SResult();
-            var rs = await CallK8SPostAsync(yamalJob, K8SURLTOKEN, CREATEJOBAPIPATH);
+            var rs = await CallK8SXXXAsync(K8SURLTOKEN,CREATEJOBAPIPATH,yamalJob,HttpMethod.Post);
             r.IsSuccessStatusCode = rs.IsSuccessStatusCode;
             if (rs.IsSuccessStatusCode)
             {
