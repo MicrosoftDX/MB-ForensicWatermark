@@ -557,9 +557,9 @@ namespace ActionsProvider
                 path = @".\Files\jobBase.txt";
             }
             string ymal = System.IO.File.ReadAllText(path);
-
-            ymal = ymal.Replace("[JOBNAME]", "allinone-job-" + JobID);
-            //Same JOb ID for all jobs and pods
+            //JobID lowercase becouse K8S Job Name don't support uppercases
+            ymal = ymal.Replace("[JOBNAME]", "allinone-job-" + JobID.ToLower());
+            //Same JOb ID for all jobs and pods, Label is original JobID
             ymal= ymal.Replace("[JOBID]",  JobID.Substring(0,JobID.IndexOf("-")));
             ymal = ymal.Replace("[IMAGENAME]", imagename);
             ymal = ymal.Replace("[PARALLELEMBEDDERS]", PARALLELEMBEDDERS);
@@ -591,10 +591,9 @@ namespace ActionsProvider
             manifest.JobID = $"{manifest.JobID}-{subId}";
             string manifesttxt = Newtonsoft.Json.JsonConvert.SerializeObject(manifest);
             //Save JOB data on Blob Storage And Generate a SASURL
-            string jobbase64 = SaveBlobData(manifesttxt,$"{manifest.JobID}");
+            string jobbase64 = SaveBlobData(manifesttxt,$"{manifest.JobID}.json");
             string imageName = System.Configuration.ConfigurationManager.AppSettings["imageName"];
             string PARALLELEMBEDDERS = System.Configuration.ConfigurationManager.AppSettings["PARALLELEMBEDDERS"] ?? "5";
-            //string jobtxt = GetJobYmal(manifest.JobID + "-" + subId.ToString(), jobbase64, imageName, PARALLELEMBEDDERS);
             string jobtxt = GetJobYmal(manifest.JobID, jobbase64, imageName, PARALLELEMBEDDERS);
             HttpContent ymal = new StringContent(jobtxt, Encoding.UTF8, "application/yaml");
             SaveBlobData(jobtxt, $"{manifest.JobID}.ymal");
@@ -603,8 +602,7 @@ namespace ActionsProvider
             var rs = await k8sClient.SubmiteK8SJob(ymal);
             if (!rs.IsSuccessStatusCode)
             {
-                
-                Trace.TraceError($"SubmiteJobK8S : {jobtxt}");
+                Trace.TraceError($"[{manifest.JobID}]SubmiteJobK8S : {jobtxt}");
             }
             return rs;
 

@@ -431,7 +431,7 @@ namespace WaterMarkingActions
                 IK8SClient k = K8SClientFactory.Create();
                 try
                 {
-                    var r = await k.DeletePods(JobId);
+                    var r = await k.DeleteJobs(JobId);
                     myResponse= req.CreateResponse(r.Code, r, JsonMediaTypeFormatter.DefaultMediaType);
                 }
                 catch (Exception X)
@@ -461,8 +461,8 @@ namespace WaterMarkingActions
             var K8S = K8SClientFactory.Create();
             try
             {
-                string jobName = $"allinone-job-{JobId}";
-                var ResultList = await K8S.GetK8SJobLog(jobName);
+                
+                var ResultList = await K8S.GetK8SJobLog(JobId);
                
                 if (ResultList.Count == 0)
                 {

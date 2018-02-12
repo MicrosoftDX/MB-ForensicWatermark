@@ -19,8 +19,6 @@ namespace ActionsProvider.K8S
         CloudStorageAccount _WatermarkStorageAccount;
 
         string CREATEJOBAPIPATH = "/apis/batch/v1/namespaces/default/jobs";
-        string PODAPIPATH = "/api/v1/namespaces/default/pods";
-        string PODLOGPATH = "/api/v1/namespaces/default/{0}/log";
         string PODBYJOBIDPATH = "/api/v1/namespaces/default/pods?labelSelector=jobid%3Djobid-";
         string JOBBYJOBIDPATH = "/apis/batch/v1/namespaces/default/jobs?labelSelector=jobid%3Djobid-";
         string K8SURLTOKEN;
@@ -36,11 +34,11 @@ namespace ActionsProvider.K8S
             Trace.TraceInformation($"[SSL] bypass {certificate.Subject} {certificate.Issuer} {sslPolicyErrors}");
             return true;
         }
-        private async Task<HttpResponseMessage> CallK8SXXXAsync(string K8SURLTOKEN, string pathPlusParameters, HttpMethod HttpVerb = HttpMethod.Get)
+        private async Task<HttpResponseMessage> CallK8SXXXAsync(string myK8SToken, string pathPlusParameters, HttpMethod HttpVerb = HttpMethod.Get)
         {
-            return await CallK8SXXXAsync(K8SURLTOKEN, pathPlusParameters, null, HttpVerb);
+            return await CallK8SXXXAsync(myK8SToken, pathPlusParameters, null, HttpVerb);
         }
-        private async Task<HttpResponseMessage> CallK8SXXXAsync(string K8SURLTOKEN, string pathPlusParameters, HttpContent content, HttpMethod HttpVerb)
+        private async Task<HttpResponseMessage> CallK8SXXXAsync(string myK8SToken, string pathPlusParameters, HttpContent content, HttpMethod HttpVerb)
         {
             HttpResponseMessage rm = null;
             using (var clientHandler = new HttpClientHandler())
@@ -52,7 +50,7 @@ namespace ActionsProvider.K8S
                     httpclient.BaseAddress = BASSEADRESSAPI;
                     httpclient.DefaultRequestHeaders.Accept.Clear();
                     httpclient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-                    httpclient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", K8SURLTOKEN);
+                    httpclient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", myK8SToken);
                     switch (HttpVerb)
                     {
                         case HttpMethod.Post:
@@ -71,19 +69,23 @@ namespace ActionsProvider.K8S
             }
             return rm;
         }
-        public async Task<List<KeyValuePair<string, string>>> GetK8SJobLog(string JobNamePrefix)
+        public async Task<List<KeyValuePair<string, string>>> GetK8SJobLog(string JobId)
         {
             List<KeyValuePair<string,string>> jobLogData = new List<KeyValuePair<string, string>>();
-           
-            var podList = await GetK8SItemList(PODAPIPATH);
-            foreach (var pod in podList)
+            JArray podList = null;
+            string errorMessage = null;
+            var podListRS = await CallK8SXXXAsync(K8SURLTOKEN, $"{PODBYJOBIDPATH}{JobId}", HttpMethod.Get);
+            if ((podListRS.IsSuccessStatusCode))
             {
-                JToken metadata = pod.Value<JToken>("metadata");
-                string podName = metadata.Value<string>("name");
-                if (podName.IndexOf(JobNamePrefix) == 0)
+                JObject jsonPodList = Newtonsoft.Json.Linq.JObject.Parse(await podListRS.Content.ReadAsStringAsync());
+                podList = (JArray)jsonPodList["items"];
+                foreach (var currentPod in podList)
                 {
-                    //my pod
+                    //Get LOGS
+                    
+                    JToken metadata = currentPod.Value<JToken>("metadata");
                     string selfLink = metadata.Value<string>("selfLink");
+                    string podName = metadata.Value<string>("name");
                     var rs = await CallK8SXXXAsync(K8SURLTOKEN, $"{selfLink}/log", HttpMethod.Get);
                     if ((rs.IsSuccessStatusCode))
                     {
@@ -91,93 +93,19 @@ namespace ActionsProvider.K8S
                     }
                     else
                     {
-                        Trace.TraceError($"GetK8SJobLog error {rs.StatusCode} {rs.ReasonPhrase}");
+                        errorMessage = $"[{JobId}] GetK8SJobLog error {rs.StatusCode} {rs.ReasonPhrase}";
                     }
                 }
+            }
+            else
+            {
+                errorMessage = $"[{JobId}] GetK8SJobLog error {podListRS.StatusCode} {podListRS.ReasonPhrase}";
+            }
+            if (!string.IsNullOrEmpty(errorMessage))
+            {
+                throw new Exception(errorMessage);
             }
             return jobLogData;
-        }
-        private async Task<JArray> GetK8SItemList(string path)
-        {
-            JArray jobs = null;
-            var rs = await CallK8SXXXAsync(K8SURLTOKEN, path, HttpMethod.Get);
-            if (rs.IsSuccessStatusCode)
-            {
-                JObject j = Newtonsoft.Json.Linq.JObject.Parse(await rs.Content.ReadAsStringAsync());
-                jobs = (JArray)j["items"];
-            }
-            else
-            {
-                throw new Exception($"Error reading JOB List {rs.ReasonPhrase}");
-            }
-            return jobs;
-        }
-        private async Task<bool> SavePodLog(string JobId,string PodName)
-        {
-            string myPodLog = string.Format(PODLOGPATH, PodName);
-            var logR = await CallK8SXXXAsync(K8SURLTOKEN, PodName, HttpMethod.Get);
-            if (logR.IsSuccessStatusCode)
-            {
-                string  log = await logR.Content.ReadAsStringAsync();
-            }
-            else
-            {
-                throw new Exception($"Error reading POD List {logR.ReasonPhrase}");
-            }
-            return logR.IsSuccessStatusCode;
-        }
-        public async Task<K8SResult> DeletePods(string JobId,string jobName, List<string> StatusFilter )
-        {
-            List<string> deleteLog = new List<string>();
-            K8SResult resultStatus = new K8SResult()
-            {
-                Code = HttpStatusCode.OK
-            };
-            try
-            {
-                //Get pod list
-                JArray podList = await GetK8SItemList(PODAPIPATH); 
-                if (podList != null)
-                {
-                    foreach (var currentPod in podList)
-                    {
-                        string jobStatus = (string)currentPod["status"]["phase"];
-                        //Filter by Status, not present
-                        if (!StatusFilter.Contains(jobStatus))
-                        {
-                            string selfLink = (string)currentPod["metadata"]["selfLink"];
-                            JObject labels = (JObject)currentPod["metadata"]["labels"];
-                            string cjobname = (string)labels["job-name"];
-                            string podName=(string)currentPod["metadata"]["name"];
-                            if (cjobname.IndexOf(jobName) >= 0)
-                            {
-                                //1. Save POD LOGS by Job Name
-                                await SavePodLog(JobId, podName);
-                                //2. Delete
-                                var subR = await CallK8SXXXAsync(K8SURLTOKEN, selfLink, HttpMethod.Delete);
-                                if (!subR.IsSuccessStatusCode)
-                                {
-                                    deleteLog.Add($"POD {selfLink} Deleted faild: {subR.StatusCode}:{subR.ReasonPhrase}");
-                                }
-                                else
-                                {
-                                    deleteLog.Add($"POD {selfLink} Deleted!");
-                                }
-                            }
-
-                        }
-                    }
-                    resultStatus.Content = Newtonsoft.Json.JsonConvert.SerializeObject(deleteLog);
-                }
-            }
-            catch (Exception X)
-            {
-                resultStatus.Code = HttpStatusCode.InternalServerError;
-                resultStatus.IsSuccessStatusCode = false;
-                resultStatus.Content = X.Message;
-            }
-           
-            return resultStatus;
         }
         private void SaveBlobData(string Data, string BlobName)
         {
@@ -187,7 +115,7 @@ namespace ActionsProvider.K8S
             CloudBlockBlob blockBlob = container.GetBlockBlobReference(BlobName);
             blockBlob.UploadText(Data);
         }
-        public async Task<K8SResult> DeletePods(string JobId)
+        public async Task<K8SResult> DeleteJobs(string JobId)
         {
             List<string> deleteLog = new List<string>();
             K8SResult masterResult = new K8SResult()
