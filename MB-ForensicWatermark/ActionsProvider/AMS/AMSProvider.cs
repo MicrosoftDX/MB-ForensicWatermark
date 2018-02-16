@@ -23,10 +23,59 @@ namespace ActionsProvider.AMS
         CloudMediaContext _mediaContext;
         CloudStorageAccount _WaterMArkStorageAccount;
         CloudBlobClient _WaterMArkStorageBlobClient;
-        CloudStorageAccount _AMSStorageAccount;
-        CloudBlobClient _AMSStorageBlobClient;
+        CloudStorageAccount _AMSDefaultStorageAccount;
+        CloudBlobClient _AMSDefaultStorageBlobClient;
+        CloudStorageAccount _AMSAssetStorageAccount;
+        CloudBlobClient _AMSAssetStorageBlobClient;
         string _PUBLISHWATERKEDCOPY;
         int _SASTTL;
+       
+        public AMSProvider(string TenantId, string ClientId, string ClientSecret, Uri AMSApiUri, string WaterMarkStorageConStr, string AMSStorageConStr,string PUBLISHWATERKEDCOPY, int sasTtl)
+        {
+            AzureAdClientSymmetricKey clientSymmetricKey = new AzureAdClientSymmetricKey(ClientId, ClientSecret);
+            var tokenCredentials = new AzureAdTokenCredentials(TenantId, clientSymmetricKey, AzureEnvironments.AzureCloudEnvironment);
+            var tokenProvider = new AzureAdTokenProvider(tokenCredentials);
+            _mediaContext = new CloudMediaContext(AMSApiUri, tokenProvider);
+
+            //WaterMarkStorage
+            _WaterMArkStorageAccount = CloudStorageAccount.Parse(WaterMarkStorageConStr);
+            _WaterMArkStorageBlobClient = _WaterMArkStorageAccount.CreateCloudBlobClient();
+            _WaterMarkStorageConStr = WaterMarkStorageConStr;
+            //AMS Stoarge
+            _AMSDefaultStorageAccount = CloudStorageAccount.Parse(AMSStorageConStr);
+            _AMSDefaultStorageBlobClient = _AMSDefaultStorageAccount.CreateCloudBlobClient();
+
+            _PUBLISHWATERKEDCOPY = PUBLISHWATERKEDCOPY;
+
+
+            _SASTTL = sasTtl;
+        }
+        private CloudStorageAccount GetAMSNotDefaultStorageAccount(string storageName)
+        {
+            string customeConn = System.Configuration.ConfigurationManager.AppSettings[$"AMSStorageConStr-{storageName}"];
+            if (string.IsNullOrEmpty(customeConn))
+            {
+                throw new Exception($"AMS connection configuration missing. Set app config AMSStorageConStr-{storageName}");
+            }
+            _AMSAssetStorageAccount = _AMSAssetStorageAccount ?? CloudStorageAccount.Parse(customeConn);
+            return _AMSAssetStorageAccount;
+
+        }
+        private CloudBlobClient GetAssetBlobClient(IAsset Asset)
+        {
+
+            if (Asset.StorageAccount.IsDefault)
+            {
+                _AMSAssetStorageBlobClient = _AMSDefaultStorageBlobClient;
+            }
+            else
+            {
+                _AMSAssetStorageBlobClient = _AMSAssetStorageBlobClient ?? GetAMSNotDefaultStorageAccount(Asset.StorageAccount.Name).CreateCloudBlobClient();
+            }
+            
+            return _AMSAssetStorageBlobClient;
+        }
+        #region K8S JOB Manifest       
         private string GetBlobSasUri(CloudBlobClient stClient, string containerName, string BlobName, SharedAccessBlobPermissions Permissions, int hours)
         {
             //Get a reference to a blob within the container.
@@ -42,27 +91,6 @@ namespace ActionsProvider.AMS
             string sasBlobToken = blob.GetSharedAccessSignature(sasConstraints);
             return blob.Uri + sasBlobToken;
         }
-        public AMSProvider(string TenantId, string ClientId, string ClientSecret, Uri AMSApiUri, string WaterMarkStorageConStr, string AMSStorageConStr,string PUBLISHWATERKEDCOPY, int sasTtl)
-        {
-            AzureAdClientSymmetricKey clientSymmetricKey = new AzureAdClientSymmetricKey(ClientId, ClientSecret);
-            var tokenCredentials = new AzureAdTokenCredentials(TenantId, clientSymmetricKey, AzureEnvironments.AzureCloudEnvironment);
-            var tokenProvider = new AzureAdTokenProvider(tokenCredentials);
-            _mediaContext = new CloudMediaContext(AMSApiUri, tokenProvider);
-
-            //WaterMarkStorage
-            _WaterMArkStorageAccount = CloudStorageAccount.Parse(WaterMarkStorageConStr);
-            _WaterMArkStorageBlobClient = _WaterMArkStorageAccount.CreateCloudBlobClient();
-            _WaterMarkStorageConStr = WaterMarkStorageConStr;
-            //AMS Stoarge
-            _AMSStorageAccount = CloudStorageAccount.Parse(AMSStorageConStr);
-            _AMSStorageBlobClient = _AMSStorageAccount.CreateCloudBlobClient();
-
-            _PUBLISHWATERKEDCOPY = PUBLISHWATERKEDCOPY;
-
-
-            _SASTTL = sasTtl;
-        }
-        #region K8S JOB Manifest       
         private VideoInformation ParseGopBitrateFilter(VideoInformation xVideo)
         {
             string partialName = xVideo.FileName.Substring(xVideo.FileName.LastIndexOf('_') + 1);
@@ -86,6 +114,7 @@ namespace ActionsProvider.AMS
             var assetStatus = xman.GetAssetStatus(theAsset.Id);
             if (assetStatus.State == ExecutionStatus.Finished)
             {
+                //MMRK Files are Ready, not need to create it from original MP4 renditions
                 videoinfo.MP4URL = "";
             }
             else
@@ -97,8 +126,10 @@ namespace ActionsProvider.AMS
                 }
                 else
                 {
-                    //USES SAS URL
-                    videoinfo.MP4URL = GetBlobSasUri(_AMSStorageBlobClient,theAsset.Uri.Segments[1],EncodeFileName,SharedAccessBlobPermissions.Read,_SASTTL);
+                    //USES SAS URL from AMS Storage, default or other.
+                    CloudBlobClient assetStorageClient = GetAssetBlobClient(theAsset);
+                    //Uses MP4 SAS URL AMS Storage
+                    videoinfo.MP4URL = GetBlobSasUri(assetStorageClient, theAsset.Uri.Segments[1],EncodeFileName,SharedAccessBlobPermissions.Read,_SASTTL);
                 }
             }
             SharedAccessBlobPermissions p =
@@ -120,16 +151,18 @@ namespace ActionsProvider.AMS
 
             foreach (var file in mp4AssetFiles.OrderBy(f => f.ContentFileSize))
             {
+                //Create video Information (MMRK) data
                 VideoInformation video = CreateVideoInformationK28JobNode(file.Name, theAsset, AssetLocatorPath);
                 manifestInfo.VideoInformation.Add(video);
-                //Watermarked
+                //Create SAS URL for each watermakerd copy MP4
+                CloudBlobClient assetBlobClient = GetAssetBlobClient(theAsset);
                 foreach (var code in manifestInfo.EnbebedCodes)
                 {
                     var wmp4Name = System.Web.HttpUtility.UrlPathEncode(video.FileName);
                     code.MP4WatermarkedURL.Add(new MP4WatermarkedURL()
                     {
                         FileName = video.FileName,
-                        WaterMarkedMp4 = GetBlobSasUri(_AMSStorageBlobClient,"watermarked", $"{manifestInfo.JobID}/{theAsset.Id}/{code.EmbebedCode}/{wmp4Name}", allAccess, _SASTTL)
+                        WaterMarkedMp4 = GetBlobSasUri(assetBlobClient, "watermarked", $"{manifestInfo.JobID}/{theAsset.Id}/{code.EmbebedCode}/{wmp4Name}", allAccess, _SASTTL)
                     });
                 }
             }
@@ -202,8 +235,8 @@ namespace ActionsProvider.AMS
             }
             IEnumerable<IAssetFile> mp4AssetFiles = currentAsset.AssetFiles.ToList().Where(af => af.Name.EndsWith(".mp4", StringComparison.OrdinalIgnoreCase)).OrderBy(f => f.ContentFileSize);
 
-
-            myData = GetManifest5Jobs(myData, /*AssetID*/ currentAsset, mp4AssetFiles, AssetLocatorPath);
+            //Get Manifest Data
+            myData = GetManifest5Jobs(myData, currentAsset, mp4AssetFiles, AssetLocatorPath);
 
 
             return myData;
@@ -216,19 +249,23 @@ namespace ActionsProvider.AMS
             IAsset X = _mediaContext.Assets.Where(a => a.Id == AssetId).FirstOrDefault();
             X.Delete();
         }
-        public void DeleteWatermakedBlobRenders(string RenderPrefix)
+        public async Task<int> DeleteWatermakedBlobRendersAsync(string JobId, string AssetId)
         {
-            CloudBlobContainer container = _AMSStorageBlobClient.GetContainerReference("watermarked");
+            IAsset theAsset = _mediaContext.Assets.Where(a => a.Id == AssetId).FirstOrDefault();
+            int acc = 0;
+            CloudBlobContainer container = GetAssetBlobClient(theAsset).GetContainerReference("watermarked");
 
-            foreach (IListBlobItem item in container.ListBlobs(RenderPrefix, true))
+            foreach (IListBlobItem item in container.ListBlobs(JobId, true))
             {
                 if (item.GetType() == typeof(CloudBlockBlob))
                 {
                     CloudBlockBlob blob = (CloudBlockBlob)item;
-                    blob.Delete();
+                    await blob.DeleteAsync();
                     Trace.TraceInformation($"Deleted blob {blob.Name}");
+                    acc += 1;
                 }
             }
+            return acc;
         }
         // Creator locator to enable publishing / streaming of newly created assets.
         private void ProcessCreateLocator(LocatorType locatorType, IAsset asset, AccessPermissions accessPolicyPermissions, TimeSpan accessPolicyDuration, Nullable<DateTime> startTime, string ForceLocatorGUID)
@@ -302,7 +339,8 @@ namespace ActionsProvider.AMS
                 IAsset SourceMediaAsset = GetMediaAssetFromAssetId(SourceAssetId);
                 string NewAssetName = $"{SourceMediaAsset.Name}-{ProcessId}-{DateTime.Now.Ticks.ToString()}";
                 CancellationToken myToken = new CancellationToken();
-                IAsset newWatermarkedAsset = await _mediaContext.Assets.CreateAsync(NewAssetName, AssetCreationOptions.None, myToken);
+                //Use specific Storage account
+                IAsset newWatermarkedAsset = await _mediaContext.Assets.CreateAsync(NewAssetName, SourceMediaAsset.StorageAccount.Name, AssetCreationOptions.None, myToken);
                 newWatermarkedAsset.AlternateId = $"{SourceAssetId}-{WMEmbedCode}";
                 await newWatermarkedAsset.UpdateAsync();
                 result.Status = result.Status = "Finished"; ;
@@ -356,7 +394,8 @@ namespace ActionsProvider.AMS
 
             string Manifest = xml.Replace("<switch></switch>", switchTxt);
             //TODO: update Asset container Name
-            var assetContainer = _AMSStorageBlobClient.GetContainerReference(myAsset.Id.Replace("nb:cid:UUID:", "asset-"));
+            string ContainerName = myAsset.Id.Replace("nb:cid:UUID:", "asset-");
+            CloudBlobContainer assetContainer = GetAssetBlobClient(myAsset).GetContainerReference(ContainerName);
             var manifestBlob = assetContainer.GetBlockBlobReference(manifestName);
             await manifestBlob.UploadTextAsync(Manifest);
 
@@ -387,11 +426,11 @@ namespace ActionsProvider.AMS
             //Expanded Try area for possible BLOB errors
             try
             {
-                IAsset Asset = _mediaContext.Assets.Where(a => a.Id == WatermarkedAssetId).FirstOrDefault();
-                detailLog.Add($"GetAsset id={Asset.Id}");
-                string containerName = ConvertMediaAssetIdToStorageContainerName(Asset.Id);
+                IAsset WatermarkedAsset = _mediaContext.Assets.Where(a => a.Id == WatermarkedAssetId).FirstOrDefault();
+                detailLog.Add($"GetAsset id={WatermarkedAsset.Id}");
+                string containerName = ConvertMediaAssetIdToStorageContainerName(WatermarkedAsset.Id);
                 detailLog.Add($"containerName = {containerName}");
-                CloudBlobContainer DestinationBlobContainer = _AMSStorageBlobClient.ListContainers().Where(n => n.Name == containerName).FirstOrDefault();
+                CloudBlobContainer DestinationBlobContainer = GetAssetBlobClient(WatermarkedAsset).GetContainerReference(containerName);
                 detailLog.Add($"DestinationBlobContainer = {DestinationBlobContainer}");
                 CloudBlockBlob sourceBlob = new CloudBlockBlob(new Uri(MMRKURL));
                 detailLog.Add($"sourceBlob = {sourceBlob.Name}");
@@ -410,7 +449,7 @@ namespace ActionsProvider.AMS
                 result.EmbedCode = WMEmbedCode;
                 result.WMAssetId = WatermarkedAssetId;
 
-                var currentFile = Asset.AssetFiles.Create(name);
+                var currentFile = WatermarkedAsset.AssetFiles.Create(name);
                 detailLog.Add($"currentFile  = {currentFile.Name}");
                 sourceBlob.FetchAttributes();
                 detailLog.Add($"FetchAttributes");
@@ -418,13 +457,13 @@ namespace ActionsProvider.AMS
                 currentFile.Update();
                 detailLog.Add($"currentFile.Update()");
 
-                Asset.Update();
+                WatermarkedAsset.Update();
                 detailLog.Add($"Asset.Update();");
 
                 #region Add Locator to new Media Asset
                 if (_PUBLISHWATERKEDCOPY.ToLower()=="true")
                 {
-                    if (Asset.Locators.Where(l => l.Type == LocatorType.OnDemandOrigin).Count() == 0)
+                    if (WatermarkedAsset.Locators.Where(l => l.Type == LocatorType.OnDemandOrigin).Count() == 0)
                     {
                         // This could be done at the "end", once for each newly created asset, instead of doing it after each file is added to the newly created asset
                         LocatorType locatorType = LocatorType.OnDemandOrigin;
@@ -433,11 +472,11 @@ namespace ActionsProvider.AMS
                         DateTime locaatorStartDate = DateTime.Now;
                         string forceLocatorGuid = null;
 
-                        ProcessCreateLocator(locatorType, Asset, accessPolicyPermissions, accessPolicyDuration, locaatorStartDate, forceLocatorGuid);
+                        ProcessCreateLocator(locatorType, WatermarkedAsset, accessPolicyPermissions, accessPolicyDuration, locaatorStartDate, forceLocatorGuid);
                     }
                     else
                     {
-                        Trace.TraceInformation($"Assset {Asset.Id} already has OndemandOrigin");
+                        Trace.TraceInformation($"Assset {WatermarkedAsset.Id} already has OndemandOrigin");
                     }
                 }
                 #endregion
