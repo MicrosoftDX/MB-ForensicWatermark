@@ -147,13 +147,10 @@ namespace WaterMarkingActions
                     //2.1 EvalWatermarkeAssetInfo 
                     var watermarkedRender = myActions.EvalWaterMarkedAssetInfo(ParentAssetID, item.EmbebedCodeValue);
                     UpdatedInfo.Add(watermarkedRender);
-                    //log.Info($"{watermarkedRender.AssetID} status {watermarkedRender.State.ToString()}");
                 }
                 //Replace New WaterMarkAssetInfo
                 manifest.EmbebedCodesList = UpdatedInfo;
-                //
                 myActions.UpdateUnifiedProcessStatus(manifest);
-                
             }
             catch (Exception X)
             {
@@ -179,10 +176,10 @@ namespace WaterMarkingActions
                 //Max number of Asset to create per iteration, to avoid Function Time out.
                 int maxAssetCreate = int.Parse(System.Configuration.ConfigurationManager.AppSettings["maxAssetCreate"] ?? "10");
                 int accAssetCreate = 0;
-                bool swError = false;
                 //List only Finished without AsstID
                 foreach (var watermarkedInfo in manifest.EmbebedCodesList)
                 {
+                    bool swError = false;
                     if ((watermarkedInfo.State == ExecutionStatus.Finished) && (string.IsNullOrEmpty(watermarkedInfo.AssetID) && (accAssetCreate<=maxAssetCreate)))
                     {
                         var watchAsset = System.Diagnostics.Stopwatch.StartNew();
@@ -190,7 +187,8 @@ namespace WaterMarkingActions
                         var xx = await help.CreateEmptyWatermarkedAsset(manifest.JobStatus.JobID, ParentAssetID, watermarkedInfo.EmbebedCodeValue);
                         watermarkedInfo.AssetID = xx.WMAssetId;
                         ////Inject all Renders on New asset
-                        foreach (var render in myActions.GetWaterMarkedRenders(ParentAssetID, watermarkedInfo.EmbebedCodeValue))
+                        var AssetWatermarkedRenders = myActions.GetWaterMarkedRenders(ParentAssetID, watermarkedInfo.EmbebedCodeValue);
+                        foreach (var render in AssetWatermarkedRenders)
                         {
                             string url = render.MP4URL;
                             var r = await help.AddWatermarkedMediaFiletoAsset(watermarkedInfo.AssetID, watermarkedInfo.EmbebedCodeValue, url);
@@ -213,6 +211,8 @@ namespace WaterMarkingActions
                         {
                             //Create New Manifest and set it as primary file.
                             await help.GenerateManifest(watermarkedInfo.AssetID);
+                            //Delete Watermarked MP4 renders
+                            await myActions.DeleteWatermarkedRenderTmpInfo(AssetWatermarkedRenders);
                             //One Asset created
                             accAssetCreate += 1;
                         }
@@ -522,7 +522,7 @@ namespace WaterMarkingActions
                 return req.CreateResponse(HttpStatusCode.InternalServerError, X, JsonMediaTypeFormatter.DefaultMediaType);
             }
             watch.Stop();
-            log.Info($"[Time] Method EvalJobProgress {watch.ElapsedMilliseconds} [ms]");
+            log.Info($"[Time] Method CancelJobTimeOut {watch.ElapsedMilliseconds} [ms]");
             return req.CreateResponse(HttpStatusCode.OK, myProcessStatus, JsonMediaTypeFormatter.DefaultMediaType);
         }
     }

@@ -99,6 +99,31 @@ namespace ActionsProvider
 
             return x;
         }
+
+        public async Task<int> DeleteWatermarkedRenderTmpInfo(List<UnifiedResponse.WaterMarkedRender> WatermarkedRenders)
+        {
+            int deleted = 0;
+            var wmrTable = tableClient.GetTableReference(ReferenceNames.WaterMarkedRender);
+            wmrTable.CreateIfNotExists();
+            try
+            {
+                TableBatchOperation batchOperation = new TableBatchOperation();
+                foreach (var currentRender in WatermarkedRenders)
+                {
+                    var tRender = new TWaterMarkedRender(currentRender);
+                    tRender.ETag = "*";
+                    batchOperation.Delete(tRender);
+                    deleted += 1;
+                }
+                var X = await wmrTable.ExecuteBatchAsync(batchOperation);
+            }
+            catch (Exception X)
+            {
+                Trace.TraceWarning($"[] DeleteWatermarkedRenderTmpInfo Error {X.Message}");               
+            }
+            return deleted;
+        }
+
         public async Task<int> EvalPEmbeddedNotifications(string JobId)
         {
             int nNotification = 0;
