@@ -1031,6 +1031,18 @@
                   "Succeeded"
                 ]
               }
+            },
+            "ErrorStartProcess": {
+              "type": "Response",
+              "inputs": {
+                "statusCode": "@outputs('StatProcessCAll')['statusCode']",
+                "body": "@body('StatProcessCAll')"
+              },
+              "runAfter": {
+                "StatProcessCAll": [
+                  "Failed"
+                ]
+              }
             }
           },
           "parameters": {},

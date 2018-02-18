@@ -25,14 +25,28 @@ namespace WaterMarkingActions
         [FunctionName("StartNewJob")]
         public static async Task<HttpResponseMessage> StartNewJob([HttpTrigger(AuthorizationLevel.Function, "post", Route = null)]HttpRequestMessage req, TraceWriter log)
         {
+            var watch = System.Diagnostics.Stopwatch.StartNew();
             dynamic BodyData = await req.Content.ReadAsAsync<object>();
             string AssetID = BodyData.AssetID;
             string JobID = BodyData.JobID;
             string[] EmbebedCodes = BodyData.EmbebedCodes.ToObject<string[]>();
             //Save Status
             IActionsProvider myActions = ActionProviderFactory.GetActionProvider();
-            var status = myActions.StartNewProcess(AssetID, JobID, EmbebedCodes);
-            return req.CreateResponse(HttpStatusCode.OK, status, JsonMediaTypeFormatter.DefaultMediaType);
+            try
+            {
+                var status = myActions.StartNewProcess(AssetID, JobID, EmbebedCodes);
+                watch.Stop();
+                log.Info($"[Time] Method StartNewJob {watch.ElapsedMilliseconds} [ms]");
+                return req.CreateResponse(HttpStatusCode.OK, status, JsonMediaTypeFormatter.DefaultMediaType);
+            }
+            catch (Exception X)
+            {
+
+                log.Error($"{X.Message}");
+                return req.CreateResponse(HttpStatusCode.InternalServerError, X, JsonMediaTypeFormatter.DefaultMediaType);
+            }
+          
+           
         }
 
         [FunctionName("GetPreprocessorJobData")]
@@ -183,39 +197,45 @@ namespace WaterMarkingActions
                     if ((watermarkedInfo.State == ExecutionStatus.Finished) && (string.IsNullOrEmpty(watermarkedInfo.AssetID) && (accAssetCreate<=maxAssetCreate)))
                     {
                         var watchAsset = System.Diagnostics.Stopwatch.StartNew();
-                        //Create new asset per embbeded code
-                        var xx = await help.CreateEmptyWatermarkedAsset(manifest.JobStatus.JobID, ParentAssetID, watermarkedInfo.EmbebedCodeValue);
-                        watermarkedInfo.AssetID = xx.WMAssetId;
                         ////Inject all Renders on New asset
                         var AssetWatermarkedRenders = myActions.GetWaterMarkedRenders(ParentAssetID, watermarkedInfo.EmbebedCodeValue);
-                        foreach (var render in AssetWatermarkedRenders)
+                        if (AssetWatermarkedRenders.Count()>0)
                         {
-                            string url = render.MP4URL;
-                            var r = await help.AddWatermarkedMediaFiletoAsset(watermarkedInfo.AssetID, watermarkedInfo.EmbebedCodeValue, url);
-                            if (r.Status != "MMRK File Added")
+                            //Create new asset per embbeded code
+                            var xx = await help.CreateEmptyWatermarkedAsset(manifest.JobStatus.JobID, ParentAssetID, watermarkedInfo.EmbebedCodeValue);
+                            watermarkedInfo.AssetID = xx.WMAssetId;
+                            //Renders exist, so Process
+                            foreach (var render in AssetWatermarkedRenders)
                             {
-                                //Error
-                                watermarkedInfo.State = ExecutionStatus.Error;
-                                watermarkedInfo.Details = $"Error adding {render.RenderName} deatils: {r.StatusMessage}";
-                                //Delete Asset
-                                help.DeleteAsset(watermarkedInfo.AssetID);
-                                watermarkedInfo.AssetID = "";
-                                log.Info($"[{manifest.JobStatus.JobID}] Asset deleted  {r.Status}");
-                                //Abort
-                                swError = true;
-                                break;
+                                string url = render.MP4URL;
+                                var r = await help.AddWatermarkedMediaFiletoAsset(watermarkedInfo.AssetID, watermarkedInfo.EmbebedCodeValue, url);
+                                if (r.Status != "MMRK File Added")
+                                {
+                                    //Error
+                                    watermarkedInfo.State = ExecutionStatus.Error;
+                                    watermarkedInfo.Details = $"Error adding {render.RenderName} deatils: {r.StatusMessage}";
+                                    //Delete Asset
+                                    help.DeleteAsset(watermarkedInfo.AssetID);
+                                    watermarkedInfo.AssetID = "";
+                                    log.Info($"[{manifest.JobStatus.JobID}] Asset deleted  {r.Status}");
+                                    //Abort
+                                    swError = true;
+                                    break;
+                                }
+                            }
+                            //If not Error Create Manifest
+                            if (!swError)
+                            {
+                                //Create New Manifest and set it as primary file.
+                                await help.GenerateManifest(watermarkedInfo.AssetID);
+                                //Delete Watermarked MP4 renders
+                                await myActions.DeleteWatermarkedRenderTmpInfo(AssetWatermarkedRenders);
+                                //One Asset created
+                                accAssetCreate += 1;
                             }
                         }
-                        //If not Error Create Manifest
-                        if (!swError)
-                        {
-                            //Create New Manifest and set it as primary file.
-                            await help.GenerateManifest(watermarkedInfo.AssetID);
-                            //Delete Watermarked MP4 renders
-                            await myActions.DeleteWatermarkedRenderTmpInfo(AssetWatermarkedRenders);
-                            //One Asset created
-                            accAssetCreate += 1;
-                        }
+                        
+                        
                        
                         watchAsset.Stop();
                         log.Info($"[Time][{manifest.JobStatus.JobID}] Asset Creation {watchAsset.ElapsedMilliseconds} [ms] code {watermarkedInfo.EmbebedCodeValue} assetID: {watermarkedInfo.AssetID}");

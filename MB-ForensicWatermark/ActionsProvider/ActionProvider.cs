@@ -296,6 +296,12 @@ namespace ActionsProvider
         }
         public UnifiedResponse.UnifiedProcessStatus StartNewProcess(string AssetId, string JobId, string[] EmbebedCodeList)
         {
+            //unique embbeder codes
+            string[] UniqueEmbbederList = EmbebedCodeList.Distinct().ToArray();
+            if (UniqueEmbbederList.Count() != EmbebedCodeList.Count())
+            {
+                throw new Exception($"[{JobId}] StartNewProcess Embbeder codes are not unique. Removed repeated");
+            }
             //NEW Process
             UnifiedResponse.UnifiedProcessStatus newProcess = new UnifiedResponse.UnifiedProcessStatus
             {
@@ -339,7 +345,6 @@ namespace ActionsProvider
 
                 case ExecutionStatus.New:
                 case ExecutionStatus.Finished:
-                    
                     if (newProcess.AssetStatus.State == ExecutionStatus.New)
                     {
                         //New Asset
@@ -375,6 +380,7 @@ namespace ActionsProvider
             //Embebedecodes only if Process is Running
             if (newProcess.JobStatus.State == ExecutionStatus.Running)
             {
+               
                 foreach (var code in EmbebedCodeList)
                 {
                     newProcess.EmbebedCodesList.Add(
