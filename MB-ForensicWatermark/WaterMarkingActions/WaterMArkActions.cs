@@ -45,8 +45,6 @@ namespace WaterMarkingActions
                 log.Error($"{X.Message}");
                 return req.CreateResponse(HttpStatusCode.InternalServerError, X, JsonMediaTypeFormatter.DefaultMediaType);
             }
-          
-           
         }
 
         [FunctionName("GetPreprocessorJobData")]
@@ -217,7 +215,7 @@ namespace WaterMarkingActions
                                     //Delete Asset
                                     help.DeleteAsset(watermarkedInfo.AssetID);
                                     watermarkedInfo.AssetID = "";
-                                    log.Info($"[{manifest.JobStatus.JobID}] Asset deleted  {r.Status}");
+                                    log.Error($"[{manifest.JobStatus.JobID}] Asset deleted  {r.Status}");
                                     //Abort
                                     swError = true;
                                     break;
@@ -227,16 +225,35 @@ namespace WaterMarkingActions
                             if (!swError)
                             {
                                 //Create New Manifest and set it as primary file.
-                                await help.GenerateManifest(watermarkedInfo.AssetID);
-                                //Delete Watermarked MP4 renders
-                                await myActions.DeleteWatermarkedRenderTmpInfo(AssetWatermarkedRenders);
-                                //One Asset created
-                                accAssetCreate += 1;
+                                var manifestResult=await help.GenerateManifest(watermarkedInfo.AssetID);
+                                if (manifestResult.Status!= "OK")
+                                {
+                                    //Error Creating Manifest
+                                    help.DeleteAsset(watermarkedInfo.AssetID);
+                                    watermarkedInfo.State = ExecutionStatus.Error;
+                                    watermarkedInfo.Details = $"Error  Creating MAnifest deatils: {manifestResult.StatusMessage}";
+                                    log.Error($"[{manifest.JobStatus.JobID}] Error at GenerateManifest  {watermarkedInfo.Details}");
+                                }
+                                else
+                                {
+                                    //Delete Watermarked MP4 renders
+                                    await myActions.DeleteWatermarkedRenderTmpInfo(AssetWatermarkedRenders);
+                                    //One Asset created
+                                    accAssetCreate += 1;
+                                }
                             }
                         }
-                        
-                        
-                       
+                        else
+                        {
+                            //Watermarked Copy error, It has not renders.
+                            watermarkedInfo.State = ExecutionStatus.Error;
+                            watermarkedInfo.Details = $"Error adding {watermarkedInfo.EmbebedCodeValue} renders deatils: Has not renders MP4";
+                            watermarkedInfo.AssetID = "";
+                            log.Error($"[{manifest.JobStatus.JobID}] Error processing Wateramark copy {watermarkedInfo.EmbebedCodeValue} error: {watermarkedInfo.Details}");
+                        }
+                        //Update WatermarkedCopy
+                        myActions.UpdateWaterMarkedAssetInfo(watermarkedInfo, manifest.AssetStatus.AssetId);
+                        //TimeTrack
                         watchAsset.Stop();
                         log.Info($"[Time][{manifest.JobStatus.JobID}] Asset Creation {watchAsset.ElapsedMilliseconds} [ms] code {watermarkedInfo.EmbebedCodeValue} assetID: {watermarkedInfo.AssetID}");
                     }
@@ -246,7 +263,6 @@ namespace WaterMarkingActions
                         break;
                     }
                 }
-                myActions.UpdateUnifiedProcessStatus(manifest);
             }
             catch (Exception X)
             {

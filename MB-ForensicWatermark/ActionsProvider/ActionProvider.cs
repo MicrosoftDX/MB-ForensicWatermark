@@ -452,12 +452,12 @@ namespace ActionsProvider
             }
             return ret;
         }
-        private UnifiedResponse.WaterMarkedAssetInfo UpdateWaterMarkedAssetInfo(UnifiedResponse.WaterMarkedAssetInfo data, string ParentAssetId)
+        public void UpdateWaterMarkedAssetInfo(WaterMarkedAssetInfo data, string ParentAssetId)
         {
             TableOperation InsertOrReplace = TableOperation.InsertOrReplace(new UnifiedResponse.TWaterMarkedAssetInfo(data, ParentAssetId));
             _WaterMarkedAssetInfo.Execute(InsertOrReplace);
-            return data;
         }
+
         private UnifiedResponse.WaterMarkedAssetInfo GetWaterMarkedAssetInfo(string AssetId, string EmbebedCodeValue)
         {
             UnifiedResponse.WaterMarkedAssetInfo z = null;

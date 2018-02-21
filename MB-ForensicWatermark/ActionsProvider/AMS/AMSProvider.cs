@@ -27,6 +27,8 @@ namespace ActionsProvider.AMS
         CloudBlobClient _AMSDefaultStorageBlobClient;
         CloudStorageAccount _AMSAssetStorageAccount;
         CloudBlobClient _AMSAssetStorageBlobClient;
+        CloudStorageAccount _AMSCOPYStorageAccount;
+        CloudBlobClient _AMSCOPYBlobClient;
         string _PUBLISHWATERKEDCOPY;
         int _SASTTL;
        
@@ -36,44 +38,55 @@ namespace ActionsProvider.AMS
             var tokenCredentials = new AzureAdTokenCredentials(TenantId, clientSymmetricKey, AzureEnvironments.AzureCloudEnvironment);
             var tokenProvider = new AzureAdTokenProvider(tokenCredentials);
             _mediaContext = new CloudMediaContext(AMSApiUri, tokenProvider);
-
             //WaterMarkStorage
             _WaterMArkStorageAccount = CloudStorageAccount.Parse(WaterMarkStorageConStr);
             _WaterMArkStorageBlobClient = _WaterMArkStorageAccount.CreateCloudBlobClient();
             _WaterMarkStorageConStr = WaterMarkStorageConStr;
-            //AMS Stoarge
+            //AMS Default Stoarge
             _AMSDefaultStorageAccount = CloudStorageAccount.Parse(AMSStorageConStr);
             _AMSDefaultStorageBlobClient = _AMSDefaultStorageAccount.CreateCloudBlobClient();
-
             _PUBLISHWATERKEDCOPY = PUBLISHWATERKEDCOPY;
-
-
             _SASTTL = sasTtl;
         }
-        private CloudStorageAccount GetAMSNotDefaultStorageAccount(string storageName)
+        private CloudStorageAccount GetAMSNotDefaultStorageAccount(string NotDefaultStorageActName)
         {
-            string customeConn = System.Configuration.ConfigurationManager.AppSettings[$"AMSStorageConStr-{storageName}"];
+            string customeConn = System.Configuration.ConfigurationManager.AppSettings[$"AMSStorageConStr-{NotDefaultStorageActName}"];
             if (string.IsNullOrEmpty(customeConn))
             {
-                throw new Exception($"AMS connection configuration missing. Set app config AMSStorageConStr-{storageName}");
+                throw new Exception($"AMS connection configuration missing. Set app config AMSStorageConStr-{NotDefaultStorageActName}");
             }
             _AMSAssetStorageAccount = _AMSAssetStorageAccount ?? CloudStorageAccount.Parse(customeConn);
             return _AMSAssetStorageAccount;
 
         }
-        private CloudBlobClient GetAssetBlobClient(IAsset Asset)
+        private CloudBlobClient GetAssetParentBlobClient(IAsset ParentAsset)
         {
-
-            if (Asset.StorageAccount.IsDefault)
+            if (ParentAsset.StorageAccount.IsDefault)
             {
                 _AMSAssetStorageBlobClient = _AMSDefaultStorageBlobClient;
             }
             else
             {
-                _AMSAssetStorageBlobClient = _AMSAssetStorageBlobClient ?? GetAMSNotDefaultStorageAccount(Asset.StorageAccount.Name).CreateCloudBlobClient();
+                _AMSAssetStorageBlobClient = _AMSAssetStorageBlobClient ?? GetAMSNotDefaultStorageAccount(ParentAsset.StorageAccount.Name).CreateCloudBlobClient();
             }
             
             return _AMSAssetStorageBlobClient;
+        }
+        private CloudBlobClient GetAssetCopyBlobClient(IAsset ParentAsset)
+        {
+            string CopyConnStr = System.Configuration.ConfigurationManager.AppSettings[$"ALLCOPIESSTORAGE"];
+            if (string.IsNullOrEmpty(CopyConnStr))
+            {
+                //Not output Storage setup
+                _AMSCOPYBlobClient= GetAssetParentBlobClient(ParentAsset);
+            }
+            else
+            {
+                //USe Output Storage
+                _AMSCOPYStorageAccount = _AMSCOPYStorageAccount ?? CloudStorageAccount.Parse(CopyConnStr);
+                _AMSCOPYBlobClient = _AMSCOPYBlobClient ?? _AMSCOPYStorageAccount.CreateCloudBlobClient();
+            }
+            return _AMSCOPYBlobClient;
         }
         #region K8S JOB Manifest       
         private string GetBlobSasUri(CloudBlobClient stClient, string containerName, string BlobName, SharedAccessBlobPermissions Permissions, int hours)
@@ -127,7 +140,8 @@ namespace ActionsProvider.AMS
                 else
                 {
                     //USES SAS URL from AMS Storage, default or other.
-                    CloudBlobClient assetStorageClient = GetAssetBlobClient(theAsset);
+                    //CloudBlobClient assetStorageClient = GetAssetBlobClient(theAsset);
+                    CloudBlobClient assetStorageClient = GetAssetParentBlobClient(theAsset);
                     //Uses MP4 SAS URL AMS Storage
                     videoinfo.MP4URL = GetBlobSasUri(assetStorageClient, theAsset.Uri.Segments[1],EncodeFileName,SharedAccessBlobPermissions.Read,_SASTTL);
                 }
@@ -155,7 +169,7 @@ namespace ActionsProvider.AMS
                 VideoInformation video = CreateVideoInformationK28JobNode(file.Name, theAsset, AssetLocatorPath);
                 manifestInfo.VideoInformation.Add(video);
                 //Create SAS URL for each watermakerd copy MP4
-                CloudBlobClient assetBlobClient = GetAssetBlobClient(theAsset);
+                CloudBlobClient assetBlobClient = GetAssetCopyBlobClient(theAsset);
                 foreach (var code in manifestInfo.EnbebedCodes)
                 {
                     var wmp4Name = System.Web.HttpUtility.UrlPathEncode(video.FileName);
@@ -253,7 +267,8 @@ namespace ActionsProvider.AMS
         {
             IAsset theAsset = _mediaContext.Assets.Where(a => a.Id == AssetId).FirstOrDefault();
             int acc = 0;
-            CloudBlobContainer container = GetAssetBlobClient(theAsset).GetContainerReference("watermarked");
+            //CloudBlobContainer for Copy asset
+            CloudBlobContainer container = GetAssetCopyBlobClient(theAsset).GetContainerReference("watermarked");
 
             foreach (IListBlobItem item in container.ListBlobs(JobId, true))
             {
@@ -340,7 +355,8 @@ namespace ActionsProvider.AMS
                 string NewAssetName = $"{SourceMediaAsset.Name}-{ProcessId}-{DateTime.Now.Ticks.ToString()}";
                 CancellationToken myToken = new CancellationToken();
                 //Use specific Storage account
-                IAsset newWatermarkedAsset = await _mediaContext.Assets.CreateAsync(NewAssetName, SourceMediaAsset.StorageAccount.Name, AssetCreationOptions.None, myToken);
+                string CopyAssetStorageName = GetAssetCopyBlobClient(SourceMediaAsset).Credentials.AccountName;
+                IAsset newWatermarkedAsset = await _mediaContext.Assets.CreateAsync(NewAssetName, CopyAssetStorageName, AssetCreationOptions.None, myToken);
                 newWatermarkedAsset.AlternateId = $"{SourceAssetId}-{WMEmbedCode}";
                 await newWatermarkedAsset.UpdateAsync();
                 result.Status = result.Status = "Finished"; ;
@@ -366,51 +382,62 @@ namespace ActionsProvider.AMS
                 return result;
             }
             IAsset myAsset = GetMediaAssetFromAssetId(SourceAssetId);
-
-            string manifestName = "manifest.ism";
-            string videoBase = "      <video src=\"{0}\" />\r\n";
-            string AudioBase = "      <audio src = \"{0}\" title = \"{1}\" /> \r\n";
-            string switchTxt = "<switch>\r\n";
-            string path;
-
-            if (Environment.GetEnvironmentVariable("HOME") != null)
+            try
             {
-                path = Environment.GetEnvironmentVariable("HOME") + @"\site\wwwroot" + @"\Files\ManifestBase.xml";
+                if (myAsset == null)
+                    throw new Exception($"Asset {SourceAssetId} don't exist");
+
+                string manifestName = "manifest.ism";
+                string videoBase = "      <video src=\"{0}\" />\r\n";
+                string AudioBase = "      <audio src = \"{0}\" title = \"{1}\" /> \r\n";
+                string switchTxt = "<switch>\r\n";
+                string path;
+
+                if (Environment.GetEnvironmentVariable("HOME") != null)
+                {
+                    path = Environment.GetEnvironmentVariable("HOME") + @"\site\wwwroot" + @"\Files\ManifestBase.xml";
+                }
+                else
+                {
+                    path = @".\Files\ManifestBase.xml";
+                }
+
+                string xml = File.ReadAllText(path);
+                foreach (IAssetFile file in myAsset.AssetFiles.OrderBy(f => f.ContentFileSize))
+                {
+                    switchTxt += string.Format(videoBase, file.Name);
+
+                }
+                switchTxt += string.Format(AudioBase, myAsset.AssetFiles.OrderBy(f => f.ContentFileSize).FirstOrDefault().Name, "English");
+                switchTxt += "    </switch>";
+
+                string Manifest = xml.Replace("<switch></switch>", switchTxt);
+                //TODO: update Asset container Name
+                string ContainerName = myAsset.Id.Replace("nb:cid:UUID:", "asset-");
+                //CloudBlobContainer GetAssetCopyBlobClient
+                CloudBlobContainer assetContainer = GetAssetCopyBlobClient(myAsset).GetContainerReference(ContainerName);
+                var manifestBlob = assetContainer.GetBlockBlobReference(manifestName);
+                await manifestBlob.UploadTextAsync(Manifest);
+
+                var currentFile = await myAsset.AssetFiles.CreateAsync(manifestName, new CancellationToken());
+                manifestBlob.FetchAttributes();
+                currentFile.ContentFileSize = manifestBlob.Properties.Length;
+                currentFile.IsPrimary = setAsPrimary;
+
+                await currentFile.UpdateAsync();
+
+                await myAsset.UpdateAsync();
+
+                result.Status = "OK";
+                result.StatusMessage = "Created Manifest";
             }
-            else
+            catch (Exception X)
             {
-                path = @".\Files\ManifestBase.xml";
-            }
-
-            string xml = File.ReadAllText(path);
-
-            foreach (IAssetFile file in myAsset.AssetFiles.OrderBy(f => f.ContentFileSize))
-            {
-                switchTxt += string.Format(videoBase, file.Name);
+                result.Status = "ERROR";
+                result.StatusMessage = $"[] Error {X.Message}" ;
+                return result;
 
             }
-            switchTxt += string.Format(AudioBase, myAsset.AssetFiles.OrderBy(f => f.ContentFileSize).FirstOrDefault().Name, "English");
-            switchTxt += "    </switch>";
-
-            string Manifest = xml.Replace("<switch></switch>", switchTxt);
-            //TODO: update Asset container Name
-            string ContainerName = myAsset.Id.Replace("nb:cid:UUID:", "asset-");
-            CloudBlobContainer assetContainer = GetAssetBlobClient(myAsset).GetContainerReference(ContainerName);
-            var manifestBlob = assetContainer.GetBlockBlobReference(manifestName);
-            await manifestBlob.UploadTextAsync(Manifest);
-
-            var currentFile = await myAsset.AssetFiles.CreateAsync(manifestName, new CancellationToken());
-            manifestBlob.FetchAttributes();
-            currentFile.ContentFileSize = manifestBlob.Properties.Length;
-            currentFile.IsPrimary = setAsPrimary;
-
-            await currentFile.UpdateAsync();
-
-            await myAsset.UpdateAsync();
-
-            result.Status = "OK";
-            result.StatusMessage = "Created Manifest";
-
             return result;
         }
         public async Task<WMAssetOutputMessage> AddWatermarkedMediaFiletoAsset(string WatermarkedAssetId, string WMEmbedCode, string MMRKURL)
@@ -430,7 +457,8 @@ namespace ActionsProvider.AMS
                 detailLog.Add($"GetAsset id={WatermarkedAsset.Id}");
                 string containerName = ConvertMediaAssetIdToStorageContainerName(WatermarkedAsset.Id);
                 detailLog.Add($"containerName = {containerName}");
-                CloudBlobContainer DestinationBlobContainer = GetAssetBlobClient(WatermarkedAsset).GetContainerReference(containerName);
+                //CloudBlobContainer GetAssetCopyBlobClient
+                CloudBlobContainer DestinationBlobContainer = GetAssetCopyBlobClient(WatermarkedAsset).GetContainerReference(containerName);
                 detailLog.Add($"DestinationBlobContainer = {DestinationBlobContainer}");
                 CloudBlockBlob sourceBlob = new CloudBlockBlob(new Uri(MMRKURL));
                 detailLog.Add($"sourceBlob = {sourceBlob.Name}");

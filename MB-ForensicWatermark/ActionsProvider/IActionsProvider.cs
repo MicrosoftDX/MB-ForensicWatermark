@@ -3,12 +3,9 @@
 
 using ActionsProvider.Entities;
 using ActionsProvider.K8S;
-using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Net.Http;
-using System.Text;
 using System.Threading.Tasks;
+
 
 namespace ActionsProvider
 {
@@ -33,5 +30,6 @@ namespace ActionsProvider
         UnifiedResponse.UnifiedProcessStatus UpdateJob(UnifiedResponse.UnifiedProcessStatus currentData, ExecutionStatus AssetState, ExecutionStatus JobState, string JobStateDetails, ExecutionStatus watermarkState, string WaterMarkCopiesStatusDetails);
         List<ManifestInfo> GetK8SManifestInfo(int aggregationLevel, int aggregationLevelOnlyEmb, ManifestInfo manifest);
         Task<int> DeleteWatermarkedRenderTmpInfo(List<UnifiedResponse.WaterMarkedRender> WatermarkedRenders);
+        void UpdateWaterMarkedAssetInfo(UnifiedResponse.WaterMarkedAssetInfo data, string ParentAssetId);
     }
 }
