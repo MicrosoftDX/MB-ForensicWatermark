@@ -12,6 +12,7 @@ namespace embedder
     using System.Linq;
     using System.Security.Cryptography;
     using System.Threading.Tasks;
+    using Polly;
 
     using global::Microsoft.WindowsAzure.Storage;
     using global::Microsoft.WindowsAzure.Storage.Blob;
@@ -130,27 +131,38 @@ namespace embedder
 
             Func<BlockMetadata, Statistics, Task> uploadBlockAsync = async (block, stats) =>
             {
-                byte[] blockData = await fetchLocalData(block.Index, block.Length);
+                DateTime start = DateTime.UtcNow;
+                stats.Add(block.Length, start);
+
+                var fetchLocalDataResult = await Policy
+                   .Handle<Exception>()
+                   .WaitAndRetryAsync(retryCount: 5, sleepDurationProvider: attempt => TimeSpan.FromSeconds(Math.Pow(2, attempt)))
+                   .ExecuteAndCaptureAsync<byte[]>(() => fetchLocalData(block.Index, block.Length));
+
+                if (fetchLocalDataResult.Outcome == OutcomeType.Failure)
+                {
+                    throw new Exception($"Could not read local file", fetchLocalDataResult.FinalException);
+                }
+
+                byte[] blockData = fetchLocalDataResult.Result;
+
                 string contentHash = md5()(blockData);
 
-                DateTime start = DateTime.UtcNow;
-
-                await ExecuteUntilSuccessAsync(async () =>
-                {
-                    await blockBlob.PutBlockAsync(
+                var putBlockAsyncResult = await Policy
+                   .Handle<Exception>()
+                   .WaitAndRetryAsync(retryCount: 5, sleepDurationProvider: attempt => TimeSpan.FromSeconds(Math.Pow(2, attempt)))
+                   .ExecuteAndCaptureAsync(() => blockBlob.PutBlockAsync(
                         blockId: block.BlockId,
                         blockData: new MemoryStream(blockData, true),
                         contentMD5: contentHash,
                         accessCondition: AccessCondition.GenerateEmptyCondition(),
-                        options: new BlobRequestOptions
-                        {
-                            StoreBlobContentMD5 = true,
-                            UseTransactionalMD5 = true
-                        },
-                        operationContext: new OperationContext());
-                }, consoleExceptionHandler);
+                        options: new BlobRequestOptions { StoreBlobContentMD5 = true, UseTransactionalMD5 = true },
+                        operationContext: new OperationContext()));
 
-                stats.Add(block.Length, start);
+                if (putBlockAsyncResult.Outcome == OutcomeType.Failure)
+                {
+                    throw new Exception($"Could not call PutBlockAsync", putBlockAsyncResult.FinalException);
+                }
             };
 
             var s = new Statistics(missingBlocks.Sum(b => (long)b.Length));
@@ -160,10 +172,15 @@ namespace embedder
                 parallelTasks: 4,
                 task: blockMetadata => uploadBlockAsync(blockMetadata, s));
 
-            await ExecuteUntilSuccessAsync(async () =>
+            var putBlockListAsyncResult = await Policy
+                   .Handle<Exception>()
+                   .WaitAndRetryAsync(retryCount: 5, sleepDurationProvider: attempt => TimeSpan.FromSeconds(Math.Pow(2, attempt)))
+                   .ExecuteAndCaptureAsync(() => blockBlob.PutBlockListAsync(blockIdList));
+
+            if (putBlockListAsyncResult.Outcome == OutcomeType.Failure)
             {
-                await blockBlob.PutBlockListAsync(blockIdList);
-            }, consoleExceptionHandler);
+                throw new Exception($"Could not call PutBlockListAsync", putBlockListAsyncResult.FinalException);
+            }
 
             log("PutBlockList succeeded, finished upload to {0}", blockBlob.Uri.AbsoluteUri);
 
@@ -220,35 +237,6 @@ namespace embedder
         public static CloudStorageAccount ToStorageAccount(this string connectionString)
         {
             return CloudStorageAccount.Parse(connectionString);
-        }
-        internal static void consoleExceptionHandler(Exception ex)
-        {
-            log("Problem occured, trying again. Details of the problem: ");
-            for (var e = ex; e != null; e = e.InnerException)
-            {
-                log(e.Message);
-            }
-            log("---------------------------------------------------------------------");
-            log(ex.StackTrace);
-            log("---------------------------------------------------------------------");
-        }
-
-        public static async Task ExecuteUntilSuccessAsync(Func<Task> action, Action<Exception> exceptionHandler)
-        {
-            bool success = false;
-            while (!success)
-            {
-
-                try
-                {
-                    await action();
-                    success = true;
-                }
-                catch (Exception ex)
-                {
-                    if (exceptionHandler != null) { exceptionHandler(ex); }
-                }
-            }
         }
 
         internal static Task ForEachAsync<T>(this IEnumerable<T> source, int parallelTasks, Func<T, Task> task)
