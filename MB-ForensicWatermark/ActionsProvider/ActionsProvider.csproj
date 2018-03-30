@@ -129,6 +129,7 @@
     <Compile Include="AMS\AMSProvider.cs" />
     <Compile Include="AMS\AMSProviderFactory.cs" />
     <Compile Include="AMS\IAMSProvider.cs" />
+    <Compile Include="Entities\AssetProcessLock.cs" />
     <Compile Include="Entities\JobSubmitData.cs" />
     <Compile Include="Entities\MMRKStatus.cs" />
     <Compile Include="Entities\UnifiedResponse.cs" />

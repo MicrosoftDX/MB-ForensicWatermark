@@ -3,6 +3,7 @@
 
 using ActionsProvider.Entities;
 using ActionsProvider.K8S;
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
@@ -11,8 +12,8 @@ namespace ActionsProvider
 {
     public interface IActionsProvider
     {
-
         MMRKStatus UpdateMMRKStatus(MMRKStatus mmrkStatus);
+        
         UnifiedResponse.UnifiedProcessStatus StartNewProcess(string AssetId, string JobId, string[] EmbebedCodeList);
         MMRKStatus GetMMRKStatus(string AsssetId, string JobRender);
         List<MMRKStatus> GetMMRKStatusList(string AssetID);
@@ -31,5 +32,7 @@ namespace ActionsProvider
         List<ManifestInfo> GetK8SManifestInfo(int aggregationLevel, int aggregationLevelOnlyEmb, ManifestInfo manifest);
         Task<int> DeleteWatermarkedRenderTmpInfo(List<UnifiedResponse.WaterMarkedRender> WatermarkedRenders);
         void UpdateWaterMarkedAssetInfo(UnifiedResponse.WaterMarkedAssetInfo data, string ParentAssetId);
+        Task<bool> GetAssetProcessLock(string AssetId, string JobID, TimeSpan timeOut, TimeSpan delay);
+        Task ReleaseAssetProcessLock(string AssetId, string JobID);
     }
 }

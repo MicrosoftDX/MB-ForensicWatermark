@@ -23,6 +23,7 @@ namespace ActionsProvider
         public static string WaterMarkedRender { get { return "WaterMarkedRender"; } }
         public static string ProcessStatus { get { return "processStatus"; } }
         public static string WaterMarkedAssetInfo { get { return "WaterMarkedAssetInfo"; } }
+        public static string AssetProcessLock { get { return "AssetProcessLock"; } }
     }
     class ActionProvider : IActionsProvider
     {
@@ -252,7 +253,57 @@ namespace ActionsProvider
         #endregion
 
         #region Process Information
+        
+        public async Task<bool> GetAssetProcessLock(string AssetId, string JobID, TimeSpan timeOut, TimeSpan delay)
+        {
+            bool Locked = false;
+            int currentRetry = 0;
+            CloudTable tableLock = tableClient.GetTableReference(ReferenceNames.AssetProcessLock);
+            AssetProcessLock myLock = new AssetProcessLock(AssetId, JobID);
+            DateTime endRunAt = DateTime.Now.Add(timeOut);
 
+            for (; ; )
+            {
+                try
+                {
+                    // Insert LOCK on traffice light table.
+                    await tableLock.CreateIfNotExistsAsync();
+                    TableOperation CreateLock = TableOperation.Insert(myLock);
+                    await tableLock.ExecuteAsync(CreateLock);
+                    Locked = true;
+                    // Return or break.
+                    break;
+                }
+                catch (Exception)
+                {
+                    Trace.TraceInformation($"[{JobID}] Tried to lock Asset {AssetId} and failed");
+                    currentRetry++;
+                    if (DateTime.Now > endRunAt)
+                    {
+                        break;
+                    }
+                }
+                // Wait to retry the operation.
+                await Task.Delay(delay);
+            }
+            return Locked;
+        }
+        public async Task ReleaseAssetProcessLock(string AssetId, string JobID)
+        {
+            try
+            {
+                //await to delete lock 
+                CloudTable tableLock = tableClient.GetTableReference(ReferenceNames.AssetProcessLock);
+                AssetProcessLock myLock = new AssetProcessLock(AssetId, JobID);
+                myLock.ETag = "*";
+                TableOperation deleteOperation = TableOperation.Delete(myLock);
+                await tableLock.ExecuteAsync(deleteOperation);
+            }
+            catch (Exception X)
+            {
+                throw new Exception($"[{JobID}] Error RealeaseAssetProcessLock for Asset {AssetId} : {X.Message}");
+            }
+        }
         public void UpdateUnifiedProcessStatus(UnifiedResponse.UnifiedProcessStatus curretnData)
         {
             //Update Asset

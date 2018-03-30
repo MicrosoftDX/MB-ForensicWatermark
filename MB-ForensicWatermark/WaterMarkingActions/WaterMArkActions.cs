@@ -30,18 +30,38 @@ namespace WaterMarkingActions
             string AssetID = BodyData.AssetID;
             string JobID = BodyData.JobID;
             string[] EmbebedCodes = BodyData.EmbebedCodes.ToObject<string[]>();
+            bool LockedAsset = false;
             //Save Status
             IActionsProvider myActions = ActionProviderFactory.GetActionProvider();
             try
             {
+                //Lock to avoid multiples process start at same time (miliseconds of difference)
+                LockedAsset= await myActions.GetAssetProcessLock(AssetID, JobID, TimeSpan.FromMinutes(1),TimeSpan.FromMilliseconds(1000));
+                if (!LockedAsset)
+                {
+                    //Error to Lock asset, so start process will fail.
+                    var LockException= new Exception($"[{JobID}] Failed to lock Asset {AssetID}, Timeout! Check Trafic light table for this assets");
+                    log.Error($"{LockException.Message}");
+                    return req.CreateResponse(HttpStatusCode.InternalServerError, LockException, JsonMediaTypeFormatter.DefaultMediaType);
+                }
+                log.Info($"[{JobID}] Locked");
+                //Star Process 
                 var status = myActions.StartNewProcess(AssetID, JobID, EmbebedCodes);
+                //Unlock trafic light to other process to StarNewProcess
+                await myActions.ReleaseAssetProcessLock(AssetID, JobID);
+                log.Info($"[{JobID}] unLocked");
+
                 watch.Stop();
                 log.Info($"[Time] Method StartNewJob {watch.ElapsedMilliseconds} [ms]");
                 return req.CreateResponse(HttpStatusCode.OK, status, JsonMediaTypeFormatter.DefaultMediaType);
             }
             catch (Exception X)
             {
-
+                if (LockedAsset)
+                {
+                    await myActions.ReleaseAssetProcessLock(AssetID, JobID);
+                    log.Info($"[{JobID}] unLocked on exception");
+                }
                 log.Error($"{X.Message}");
                 return req.CreateResponse(HttpStatusCode.InternalServerError, X, JsonMediaTypeFormatter.DefaultMediaType);
             }
