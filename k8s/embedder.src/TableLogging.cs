@@ -44,12 +44,14 @@
                 return Task.CompletedTask;
             }
 
+            var entity = new PreprocessorTableEntity(job: job, status: status);
+
             return Policy.Handle<Exception>()
-                .WaitAndRetryAsync(retryCount: 5, sleepDurationProvider: attempt => TimeSpan.FromSeconds(1))
-                .Execute(() =>
+                .WaitAndRetryAsync(retryCount: 5, sleepDurationProvider: attempt => TimeSpan.FromSeconds(1),
+                    onRetry: (ex, ts) => { Console.WriteLine($"While logging to table: {ex.Message}"); })
+                .ExecuteAsync(() =>
                 {
-                    return preprocessorTable.InsertOrReplaceAsync<PreprocessorTableEntity>(new PreprocessorTableEntity(
-                        job: job, status: status));
+                    return preprocessorTable.InsertOrReplaceAsync<PreprocessorTableEntity>(entity);
                 });
         }
 
@@ -60,12 +62,14 @@
                 return Task.CompletedTask;
             }
 
+            var entity = new EmbedderTableEntity(job: job, status: status);
+
             return Policy.Handle<Exception>()
-                .WaitAndRetryAsync(retryCount: 5, sleepDurationProvider: attempt => TimeSpan.FromSeconds(1))
-                .Execute(() =>
+                .WaitAndRetryAsync(retryCount: 5, sleepDurationProvider: attempt => TimeSpan.FromSeconds(1), 
+                    onRetry: (ex, ts) => { Console.WriteLine($"While logging to table: {ex.Message}"); })
+                .ExecuteAsync(() =>
                 {
-                    return embedderTable.InsertOrReplaceAsync<EmbedderTableEntity>(new EmbedderTableEntity(
-                        job: job, status: status));
+                    return embedderTable.InsertOrReplaceAsync<EmbedderTableEntity>(entity);
                 });
         }
     }
