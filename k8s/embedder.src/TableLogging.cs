@@ -5,6 +5,7 @@
     using System.Threading.Tasks;
     using Microsoft.WindowsAzure.Storage;
     using Microsoft.WindowsAzure.Storage.Table;
+    using Polly;
 
     public class TableWrapper
     {
@@ -25,6 +26,7 @@
         {
             if (string.IsNullOrEmpty(connectionString))
             {
+                Console.WriteLine("WARNING: No connection string to table storage provided");
                 return;
             }
             var account = CloudStorageAccount.Parse(connectionString: connectionString);
@@ -42,8 +44,13 @@
                 return Task.CompletedTask;
             }
 
-            return preprocessorTable.InsertOrReplaceAsync<PreprocessorTableEntity>(new PreprocessorTableEntity(
-                job: job, status: status));
+            return Policy.Handle<Exception>()
+                .WaitAndRetryAsync(retryCount: 5, sleepDurationProvider: attempt => TimeSpan.FromSeconds(1))
+                .Execute(() =>
+                {
+                    return preprocessorTable.InsertOrReplaceAsync<PreprocessorTableEntity>(new PreprocessorTableEntity(
+                        job: job, status: status));
+                });
         }
 
         public Task LogEmbedderAsync(EmbedderJob job, string status)
@@ -53,8 +60,13 @@
                 return Task.CompletedTask;
             }
 
-            return embedderTable.InsertOrReplaceAsync<EmbedderTableEntity>(new EmbedderTableEntity(
-                job: job, status: status));
+            return Policy.Handle<Exception>()
+                .WaitAndRetryAsync(retryCount: 5, sleepDurationProvider: attempt => TimeSpan.FromSeconds(1))
+                .Execute(() =>
+                {
+                    return embedderTable.InsertOrReplaceAsync<EmbedderTableEntity>(new EmbedderTableEntity(
+                        job: job, status: status));
+                });
         }
     }
 
