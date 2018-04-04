@@ -3,51 +3,17 @@
 
 namespace embedder
 {
+    using Newtonsoft.Json;
+    using Polly;
     using System;
     using System.Collections.Generic;
     using System.IO;
-    using System.Linq;
+    using System.Net.Http;
     using System.Text;
     using System.Threading.Tasks;
-    using Newtonsoft.Json;
-    using Microsoft.WindowsAzure.Storage.Queue;
-    using Polly;
-    using System.Net.Http;
 
     public class Program
     {
-        #region helper data structures 
-
-        public class PreprocessorJob
-        {
-            public EmbedderJobDTO Job { get; set; }
-            public string Name { get; set; }
-            public Uri Mp4URL { get; set; }
-            public Uri MmmrkURL { get; set; }
-            public int GOPSize { get; set; }
-            public int VideoBitrate { get; set; }
-            public string VideoFilter { get; set; }
-            public bool RunPreprocessorAndUploadMMRK { get; set; }
-            public FileInfo LocalFile { get; set; }
-            public FileInfo StatsFile { get; set; }
-            public FileInfo MmrkFile { get; set; }
-            public CloudQueue Queue { get; set; }
-        }
-
-        public class EmbedderJob
-        {
-            internal EmbedderJobDTO Job { get; set; }
-            public string Name { get; set; }
-            public string UserID { get; set; }
-            public Uri MmrkURL { get; set; }
-            public FileInfo MmrkFile { get; set; }
-            public Uri WatermarkedURL { get; set; }
-            public FileInfo WatermarkedFile { get; set; }
-            public CloudQueue Queue { get; set; }
-        }
-
-        #endregion
-
         #region Logging
 
         public enum Category
@@ -166,7 +132,7 @@ namespace embedder
 
             #region MMRK Generation
 
-            var preprocessorData = Program.DeterminePreprocessorJobs(job);
+            var preprocessorData = PreprocessorJob.DeterminePreprocessorJobs(job);
             stdout(Category.Main, "Start Preprocessor");
             foreach (var pd in preprocessorData)
             {
@@ -192,7 +158,7 @@ namespace embedder
             var parallelEmbedderTasks = getNumberOfParallelEmbedderTasks();
 
             stdout(Category.Main, "Start Embedder");
-            var embedderData = Program.DetermineEmbedderJobs(job);
+            var embedderData = EmbedderJob.DetermineEmbedderJobs(job);
 
             await embedderData.ForEachAsync(
                 parallelTasks: parallelEmbedderTasks, 
@@ -227,29 +193,6 @@ namespace embedder
             Directory.Delete(workFolder, recursive: true);
 
             return 0;
-        }
-
-        private static IEnumerable<PreprocessorJob> DeterminePreprocessorJobs(EmbedderJobDTO job)
-        {
-            var preprocessorQueue = new CloudQueue(job.PreprocessorNotificationQueue.AsUri());
-
-            var pj =  job.PreprocessorItems.Select(_ => new PreprocessorJob
-            {
-                Job = job,
-                Name = _.FileName,
-                LocalFile = _.FileName.AsLocalFile(),
-                StatsFile = _.FileName.AsStatsFile(),
-                MmrkFile = _.FileName.AsMmrkFile(),
-                Mp4URL = _.VideoURL.AsUri(),
-                MmmrkURL = _.MmrkUrl.AsUri(),
-                GOPSize = _.GOPSize,
-                VideoBitrate = _.VideoBitrate,
-                VideoFilter = _.VideoFilter,
-                RunPreprocessorAndUploadMMRK = !string.IsNullOrEmpty(_.VideoURL),
-                Queue = preprocessorQueue
-            });
-
-            return pj;
         }
         
         private static async Task RunPreprocessorAsync(PreprocessorJob job, Action<Category, string> stdout, Action<Category, string> stderr, TableWrapper table)
@@ -507,29 +450,6 @@ namespace embedder
 
                 #endregion
             }
-        }
-
-        private static IEnumerable<EmbedderJob> DetermineEmbedderJobs(EmbedderJobDTO job)
-        {
-            var embedderQueue = new CloudQueue(job.EmbedderNotificationQueue.AsUri());
-
-            var ej = job.EmbedderJobs.SelectMany(
-                _ => _.EmbedderItems,
-                (a, b) => new EmbedderJob
-                {
-                    Job = job,
-                    Name = b.FileName,
-                    UserID = a.UserID,
-                    MmrkURL = job.PreprocessorItems.FirstOrDefault(_ => _.FileName == b.FileName)?.MmrkUrl.AsUri(),
-                    MmrkFile = b.FileName.AsMmrkFile(),
-                    WatermarkedFile = b.FileName.AsWatermarkFileForUser(a.UserID),
-                    WatermarkedURL = b.WaterMarkedMp4.AsUri(),
-                    Queue = embedderQueue
-
-                })
-            .Where(_ => _.MmrkURL != null);
-
-            return ej;
         }
 
         private static async Task RunEmbedderAsync(EmbedderJob job, Action<Category, string> stdout, Action<Category, string> stderr, TableWrapper table)
