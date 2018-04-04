@@ -5,27 +5,23 @@
     using System.Threading.Tasks;
     using Microsoft.WindowsAzure.Storage;
     using Microsoft.WindowsAzure.Storage.Table;
-    using static embedder.Program;
 
     public class TableWrapper
     {
-        const string PREPROCESSOR_TABLE_NAME = "preprocessor";
-        const string EMBEDDER_TABLE_NAME = "embedder";
-
         CloudTableClient client;
         CloudTable preprocessorTable;
         CloudTable embedderTable;
 
-        public static async Task<TableWrapper> CreateAsync(string connectionString)
+        public static async Task<TableWrapper> CreateAsync(string connectionString, string preprocessorTableName, string embedderTableName)
         {
             var result = new TableWrapper();
-            await result.InitAsync(connectionString);
+            await result.InitAsync(connectionString, preprocessorTableName, embedderTableName);
             return result;
         }
 
         private TableWrapper() { }
 
-        private async Task InitAsync(string connectionString)
+        private async Task InitAsync(string connectionString, string preprocessorTableName, string embedderTableName)
         {
             if (string.IsNullOrEmpty(connectionString))
             {
@@ -33,9 +29,9 @@
             }
             var account = CloudStorageAccount.Parse(connectionString: connectionString);
             this.client = account.CreateCloudTableClient();
-            this.preprocessorTable = client.GetTableReference(tableName: PREPROCESSOR_TABLE_NAME);
+            this.preprocessorTable = client.GetTableReference(tableName: preprocessorTableName);
             await this.preprocessorTable.CreateIfNotExistsAsync();
-            this.embedderTable = client.GetTableReference(tableName: EMBEDDER_TABLE_NAME);
+            this.embedderTable = client.GetTableReference(tableName: embedderTableName);
             await this.embedderTable.CreateIfNotExistsAsync();
         }
 
@@ -69,8 +65,8 @@
         public PreprocessorTableEntity(PreprocessorJob job, string status)
         {
             this.PartitionKey = job.Job.AssetID;
-            this.RowKey = $"{job.Mp4URL.NormalizedURL().ToPartitionKey()}-{job.VideoBitrate}";
-            this.VideoURL = job.Mp4URL.NormalizedURL();
+            this.RowKey = $"{job.MmmrkURL.NormalizedURL().ToPartitionKey()}-{job.VideoBitrate}";
+            this.VideoURL = job.Mp4URL != null ? job.Mp4URL.NormalizedURL() : "";
             this.MMRKURL = job.MmmrkURL.NormalizedURL();
             this.AssetID = job.Job.AssetID;
             this.JobID = job.Job.JobID;
@@ -126,7 +122,7 @@
 
         public static string NormalizedURL(this Uri uri)
         {
-            return $"https://{uri.Host}/{uri.LocalPath}";
+            return $"https://{uri.Host}{uri.LocalPath}";
         }
 
         public static string ToPartitionKey(this string uri)

@@ -73,7 +73,10 @@ namespace embedder
             {
                 stdout(Program.Category.Main, $"Could not configure table logging, missing environment variable 'LOGGINGTABLE'");
             }
-            var table = await TableWrapper.CreateAsync(connectionString: tableConnectionString);
+            var table = await TableWrapper.CreateAsync(
+                connectionString: tableConnectionString, 
+                preprocessorTableName: "preprocessor",
+                embedderTableName: "embedder");
 
             #region Read Job
 
