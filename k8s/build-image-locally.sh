@@ -8,6 +8,6 @@ docker build --tag "${DOCKER_REGISTRY}/${IMAGE_NAME}:${IMAGE_VERSION}" --file ./
 
 # acr_pass=$(az acr credential show --name $acr_name | jq -r .passwords[0].value)
 
-docker login "${DOCKER_REGISTRY}" --username "${acr_name}" --password "${acr_pass}"
+echo "${acr_pass}" | docker login "${DOCKER_REGISTRY}" --username "${acr_name}" --password-stdin
 
 docker push "${DOCKER_REGISTRY}/${IMAGE_NAME}:${IMAGE_VERSION}"
