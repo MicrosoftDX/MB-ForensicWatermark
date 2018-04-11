@@ -17,7 +17,7 @@
     <Reference Include="System.Net.Http, Version=4.1.1.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a" />
   </ItemGroup>
   <ItemGroup>
-    <None Update="Files\jobBase.txt">
+    <None Update="Files\jobBase.yaml">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Update="Files\ManifestBase.xml">

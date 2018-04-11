@@ -4,6 +4,8 @@ export PREPROCESSOR_IP=127.0.0.1
 export EMBEDDER_LICENSE_FILE="./licenses/NGStreamingSE.lic"
 export ENCODER_SETTINGS_FILE="./licenses/NGPTV_Preprocessor.xml"
 
+export LOGGINGTABLE="DefaultEndpointsProtocol=https;AccountName=...;AccountKey=...;EndpointSuffix=core.windows.net"
+
 export AZURE_API_ENDPOINT=functionapp12345.azurewebsites.net
 export AZURE_API_TOKEN=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa==
 export AZURE_AMS_ASSET_ID=nb:cid:UUID:aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa
