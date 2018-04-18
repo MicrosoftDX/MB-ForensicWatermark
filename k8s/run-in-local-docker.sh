@@ -19,14 +19,16 @@ LIC="{ \"Licenses\": [
 
 LICENSES_AS_BASE64=$(echo $LIC | base64 --wrap=0)
 
-JOB_JSON=$(curl --request POST --silent --header "Content-Type: application/json" --data "{\"AssetId\":\"${AZURE_AMS_ASSET_ID}\",\"JobID\":\"1234\",\"Codes\":[\"0x2ADA01\",\"0x2ADA02\",\"0x2ADA03\"]}" "https://${AZURE_API_ENDPOINT}/api/GetPreprocessorJobData?code=${AZURE_API_TOKEN}" )
+#JOB_JSON=$(curl --request POST --silent --header "Content-Type: application/json" --data "{\"AssetId\":\"${AZURE_AMS_ASSET_ID}\",\"JobID\":\"1234\",\"Codes\":[\"0x2ADA01\",\"0x2ADA02\",\"0x2ADA03\"]}" "https://${AZURE_API_ENDPOINT}/api/GetPreprocessorJobData?code=${AZURE_API_TOKEN}" )
+#JOB_AS_BASE64=$(echo $JOB_JSON | base64 --wrap=0)
 
-JOB_AS_BASE64=$(echo $JOB_JSON | base64 --wrap=0)
+
+JOB_AS_BASE64="https://chgeuermediawarner.blob.core.windows.net/jobs/job-20180411-132120.json?sv=2017-04-17&sr=b&sig=YMq86WigKLe8gwIVwR4kaHlwa%2B0Ibi36ZGPq1ALFfrQ%3D&se=2018-04-13T13%3A21%3A21Z&sp=r"
 
 echo Generated all data
 
 echo $LICENSES_AS_BASE64 | base64 -d > __licenses.json
-echo $JOB_AS_BASE64      | base64 -d > __job.json
+#echo $JOB_AS_BASE64      | base64 -d > __job.json
 echo --------------------------------------------
 echo PayTVPreProcessorVideo.lic
 echo $LICENSES_AS_BASE64 | base64 -d | jq -r '.Licenses[0].Content' | base64 -d
@@ -46,6 +48,8 @@ echo Kicking off docker
 docker run -it --rm \
     -e "LICENSES=${LICENSES_AS_BASE64}" \
     -e "JOB=${JOB_AS_BASE64}" \
+    -e "LOGGINGTABLE=${LOGGINGTABLE}" \
+    -e "PARALLELEMBEDDERS=2" \
     --entrypoint=/usr/local/bin/dotnet \
     "${acr_name}.azurecr.io/${IMAGE_NAME}:${IMAGE_VERSION}" \
     embedder.dll

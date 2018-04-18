@@ -25,6 +25,8 @@ spec:
                     value: ${JOB_AS_BASE64}
                   - name: PARALLELEMBEDDERS
                     value: "2"
+                  - name: LOGGINGTABLE
+                    value: "DefaultEndpointsProtocol=https;AccountName=xxxx;AccountKey=xxxxxxxxxxxxxxxxxxxxx==;EndpointSuffix=core.windows.net"
                 command: [ 'dotnet', 'embedder.dll' ]
                 volumeMounts:
                 - mountPath: /mnt

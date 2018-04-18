@@ -22,9 +22,11 @@ spec:
                              name: licenses
                              key: licenses 
                   - name: JOB 
-                    value:  [JOBBASE64] 
+                    value: "[JOBBASE64]"
                   - name: PARALLELEMBEDDERS 
-                    value:  "[PARALLELEMBEDDERS]" 
+                    value: "[PARALLELEMBEDDERS]" 
+                  - name: LOGGINGTABLE 
+                    value: "[LOGGINGTABLE]" 
                 command: [ 'dotnet', 'embedder.dll' ]
                 volumeMounts:
                 - mountPath: /mnt

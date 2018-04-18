@@ -161,7 +161,7 @@ namespace embedder
 
                 if (putBlockAsyncResult.Outcome == OutcomeType.Failure)
                 {
-                    throw new Exception($"Could not call PutBlockAsync", putBlockAsyncResult.FinalException);
+                    throw new Exception($"Could not call PutBlockAsync {putBlockAsyncResult.FinalException.Message}", putBlockAsyncResult.FinalException);
                 }
             };
 

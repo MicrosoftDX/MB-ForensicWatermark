@@ -3,54 +3,20 @@
 
 namespace embedder
 {
+    using Newtonsoft.Json;
+    using Polly;
     using System;
     using System.Collections.Generic;
     using System.IO;
-    using System.Linq;
+    using System.Net.Http;
     using System.Text;
     using System.Threading.Tasks;
-    using Newtonsoft.Json;
-    using Microsoft.WindowsAzure.Storage.Queue;
-    using Polly;
-    using System.Net.Http;
 
-    class Program
+    public class Program
     {
-        #region helper data structures 
-
-        internal class PreprocessorJob
-        {
-            internal EmbedderJobDTO Job { get; set; }
-            public string Name { get; set; }
-            public Uri Mp4URL { get; set; }
-            public Uri MmmrkURL { get; set; }
-            public int GOPSize { get; set; }
-            public int VideoBitrate { get; set; }
-            public string VideoFilter { get; set; }
-            public bool RunPreprocessorAndUploadMMRK { get; set; }
-            public FileInfo LocalFile { get; set; }
-            public FileInfo StatsFile { get; set; }
-            public FileInfo MmrkFile { get; set; }
-            public CloudQueue Queue { get; set; }
-        }
-
-        internal class EmbedderJob
-        {
-            internal EmbedderJobDTO Job { get; set; }
-            public string Name { get; set; }
-            public string UserID { get; set; }
-            public Uri MmrkURL { get; set; }
-            public FileInfo MmrkFile { get; set; }
-            public Uri WatermarkedURL { get; set; }
-            public FileInfo WatermarkedFile { get; set; }
-            public CloudQueue Queue { get; set; }
-        }
-
-        #endregion
-
         #region Logging
 
-        enum Category
+        public enum Category
         {
             Main = 0,
             DownloadMP4,
@@ -76,8 +42,8 @@ namespace embedder
             { Category.QueueNotifications, "Send Queue Message " }
         };
 
-        static void stdout(Category category, string message) => print(category, message, Console.Out);
-        static void stderr(Category category, string message) => print(category, message, Console.Error);
+        public static void stdout(Category category, string message) => print(category, message, Console.Out);
+        public static void stderr(Category category, string message) => print(category, message, Console.Error);
 
         static void print(Category category, string message, TextWriter writer)
         {
@@ -101,6 +67,16 @@ namespace embedder
             LicenseData.InjectIntoFilesystem(environmentVariable: "LICENSES");
 
             #endregion
+
+            var tableConnectionString = Environment.GetEnvironmentVariable("LOGGINGTABLE");
+            if (string.IsNullOrEmpty(tableConnectionString))
+            {
+                stdout(Program.Category.Main, $"Could not configure table logging, missing environment variable 'LOGGINGTABLE'");
+            }
+            var table = await TableWrapper.CreateAsync(
+                connectionString: tableConnectionString, 
+                preprocessorTableName: "preprocessor",
+                embedderTableName: "embedder");
 
             #region Read Job
 
@@ -159,12 +135,12 @@ namespace embedder
 
             #region MMRK Generation
 
-            var preprocessorData = Program.DeterminePreprocessorJobs(job);
+            var preprocessorData = PreprocessorJob.DeterminePreprocessorJobs(job);
             stdout(Category.Main, "Start Preprocessor");
             foreach (var pd in preprocessorData)
             {
                 // run these compute-intensive jobs sequentially
-                await Program.RunPreprocessorAsync(pd, stdout, stderr);
+                await Program.RunPreprocessorAsync(pd, stdout, stderr, table);
             }
             stdout(Category.Main, "Finished Preprocessor");
 
@@ -185,11 +161,11 @@ namespace embedder
             var parallelEmbedderTasks = getNumberOfParallelEmbedderTasks();
 
             stdout(Category.Main, "Start Embedder");
-            var embedderData = Program.DetermineEmbedderJobs(job);
+            var embedderData = EmbedderJob.DetermineEmbedderJobs(job);
 
             await embedderData.ForEachAsync(
                 parallelTasks: parallelEmbedderTasks, 
-                task: _ => Program.RunEmbedderAsync(_, stdout, stderr));
+                task: _ => Program.RunEmbedderAsync(_, stdout, stderr, table));
 
             stdout(Category.Main, "Finished Embedder");
 
@@ -221,40 +197,19 @@ namespace embedder
 
             return 0;
         }
-
-        private static IEnumerable<PreprocessorJob> DeterminePreprocessorJobs(EmbedderJobDTO job)
-        {
-            var preprocessorQueue = new CloudQueue(job.PreprocessorNotificationQueue.AsUri());
-
-            var pj =  job.PreprocessorItems.Select(_ => new PreprocessorJob
-            {
-                Job = job,
-                Name = _.FileName,
-                LocalFile = _.FileName.AsLocalFile(),
-                StatsFile = _.FileName.AsStatsFile(),
-                MmrkFile = _.FileName.AsMmrkFile(),
-                Mp4URL = _.VideoURL.AsUri(),
-                MmmrkURL = _.MmrkUrl.AsUri(),
-                GOPSize = _.GOPSize,
-                VideoBitrate = _.VideoBitrate,
-                VideoFilter = _.VideoFilter,
-                RunPreprocessorAndUploadMMRK = !string.IsNullOrEmpty(_.VideoURL),
-                Queue = preprocessorQueue
-            });
-
-            return pj;
-        }
         
-        private static async Task RunPreprocessorAsync(PreprocessorJob _, Action<Category, string> stdout, Action<Category, string> stderr)
+        private static async Task RunPreprocessorAsync(PreprocessorJob job, Action<Category, string> stdout, Action<Category, string> stderr, TableWrapper table)
         {
             ExecutionResult output;
 
-            if (_.RunPreprocessorAndUploadMMRK)
+            if (job.RunPreprocessorAndUploadMMRK)
             {
                 #region Download MP4
 
-                stdout(Category.DownloadMP4, $"Start Download MP4 {_.Mp4URL.AbsoluteUri}");
-                output = await _.Mp4URL.DownloadToAsync(_.LocalFile);
+                stdout(Category.DownloadMP4, $"Start Download MP4 {job.Mp4URL.AbsoluteUri}");
+                await table.LogPreprocessorAsync(job, "Starting download");
+
+                output = await job.Mp4URL.DownloadToAsync(job.LocalFile);
                 if (output.Success)
                 {
                     stdout(Category.DownloadMP4, output.Output);
@@ -262,11 +217,12 @@ namespace embedder
                 else
                 {
                     stderr(Category.DownloadMP4, output.Output);
-                    var queueOutput = await _.Queue.DispatchMessage(new NotificationPreprocessor
+                    await table.LogPreprocessorAsync(job, $"Download problem: {output.Output}");
+                    var queueOutput = await job.Queue.DispatchMessage(new NotificationPreprocessor
                     {
-                        AssetID = _.Job.AssetID,
-                        JobID = _.Job.JobID,
-                        FileName = _.Name,
+                        AssetID = job.Job.AssetID,
+                        JobID = job.Job.JobID,
+                        FileName = job.Name,
                         Status = JobStatus.Error,
                         JobOutput = output.Output, 
                         Stage = PreprocessorStage.DownloadMP4
@@ -278,14 +234,16 @@ namespace embedder
 
                     return;
                 }
-                stdout(Category.DownloadMP4, $"Finished Download MP4 {_.Mp4URL.AbsoluteUri}");
+                stdout(Category.DownloadMP4, $"Finished Download MP4 {job.Mp4URL.AbsoluteUri}");
+                await table.LogPreprocessorAsync(job, $"Finished Download MP4 {job.Mp4URL.AbsoluteUri}");
 
                 #endregion
 
                 #region Pass 1
 
                 //--x264encopts --bframes 2 --b-pyramid none --b-adapt 0 --no-scenecut
-                stdout(Category.PreprocessorStep1, $"Start {_.LocalFile.FullName}");
+                stdout(Category.PreprocessorStep1, $"Start {job.LocalFile.FullName}");
+                await table.LogPreprocessorAsync(job, $"Start pass 1 for {job.LocalFile.FullName}");
 
                 output = await Utils.RunProcessAsync(
                     prefix: "PREPROCESSOR1",
@@ -295,11 +253,11 @@ namespace embedder
                     },
                     fileName: "/usr/share/nexguardescreener-preprocessor/NGS_Preprocessor",
                     arguments: new[] {
-                        $"--infile {_.LocalFile.FullName}",
-                        $"--stats {_.StatsFile.FullName}",
+                        $"--infile {job.LocalFile.FullName}",
+                        $"--stats {job.StatsFile.FullName}",
                         $"--pass 1",
-                        $"--vbitrate {(_.VideoBitrate)}",
-                        $"--gopsize {_.GOPSize}",
+                        $"--vbitrate {(job.VideoBitrate)}",
+                        $"--gopsize {job.GOPSize}",
                         "--x264encopts",
                         "--keyint 60",
                         "--min-keyint 60",
@@ -307,19 +265,21 @@ namespace embedder
                     }
                 );
 
-                if (output.Success && _.StatsFile.Exists)
+                if (output.Success && job.StatsFile.Exists)
                 {
                     stdout(Category.PreprocessorStep1, "SUCCESS");
+
                     // stdout(Category.PreprocessorStep1, output.Output);
                 }
                 else
                 {
                     stderr(Category.PreprocessorStep1, output.Output);
-                    var queueOutput = await _.Queue.DispatchMessage(new NotificationPreprocessor
+                    await table.LogPreprocessorAsync(job, $"Problem pass 1 for {job.LocalFile.FullName}: {output.Output}");
+                    var queueOutput = await job.Queue.DispatchMessage(new NotificationPreprocessor
                     {
-                        AssetID = _.Job.AssetID,
-                        JobID = _.Job.JobID,
-                        FileName = _.Name,
+                        AssetID = job.Job.AssetID,
+                        JobID = job.Job.JobID,
+                        FileName = job.Name,
                         Status = JobStatus.Error,
                         JobOutput = output.Output,
                         Stage = PreprocessorStage.Pass1
@@ -331,12 +291,14 @@ namespace embedder
 
                     return;
                 }
-                stdout(Category.PreprocessorStep1, $"Finished {_.LocalFile.FullName}");
+                stdout(Category.PreprocessorStep1, $"Finished {job.LocalFile.FullName}");
+                await table.LogPreprocessorAsync(job, $"Finished pass 1 for {job.LocalFile.FullName}");
 
                 #endregion
 
                 #region Pass 2
-                stdout(Category.PreprocessorStep2, $"Start {_.LocalFile.FullName}");
+                stdout(Category.PreprocessorStep2, $"Start {job.LocalFile.FullName}");
+                await table.LogPreprocessorAsync(job, $"Start pass 2 for {job.LocalFile.FullName}");
 
                 output = await Utils.RunProcessAsync(
                    prefix: "PREPROCESSOR2",
@@ -349,28 +311,30 @@ namespace embedder
                    //TEST 2 arguments: new[] { $"--infile {_.LocalFile.FullName}", $"--stats {_.StatsFile.FullName}", $"--outfile {_.MmrkFile.FullName}", $"--pass 2", $"--vbitrate {(_.VideoBitrate/1000)}K", $"--gopsize {_.GOPSize}", "--x264encopts", "--keyint 60", "--min-keyint 60", "--no-scenecut" }
                    //TEST3
                    arguments: new[] {
-                        $"--infile {_.LocalFile.FullName}",
-                        $"--stats {_.StatsFile.FullName}",
-                        $"--outfile {_.MmrkFile.FullName}",
+                        $"--infile {job.LocalFile.FullName}",
+                        $"--stats {job.StatsFile.FullName}",
+                        $"--outfile {job.MmrkFile.FullName}",
                         $"--pass 2",
-                        $"--vbitrate {(_.VideoBitrate)}",
-                        $"--gopsize {_.GOPSize}",
+                        $"--vbitrate {(job.VideoBitrate)}",
+                        $"--gopsize {job.GOPSize}",
                         "--x264encopts", "--keyint 60", "--min-keyint 60", "--no-scenecut"
                    }
                 );
-                if (output.Success && _.MmrkFile.Exists)
+                if (output.Success && job.MmrkFile.Exists)
                 {
                     stdout(Category.PreprocessorStep2, "SUCCESS");
+                    await table.LogPreprocessorAsync(job, $"Finished pass 2 for {job.LocalFile.FullName}");
                     // stdout(Category.PreprocessorStep2, output.Output);
                 }
                 else
                 {
                     stderr(Category.PreprocessorStep2, output.Output);
-                    var queueOutput = await _.Queue.DispatchMessage(new NotificationPreprocessor
+                    await table.LogPreprocessorAsync(job, $"Problem pass 2 for {job.LocalFile.FullName}: {output.Output}");
+                    var queueOutput = await job.Queue.DispatchMessage(new NotificationPreprocessor
                     {
-                        AssetID = _.Job.AssetID,
-                        JobID = _.Job.JobID,
-                        FileName = _.Name,
+                        AssetID = job.Job.AssetID,
+                        JobID = job.Job.JobID,
+                        FileName = job.Name,
                         Status = JobStatus.Error,
                         JobOutput = output.Output,
                         Stage = PreprocessorStage.Pass2
@@ -383,41 +347,43 @@ namespace embedder
 
                     return;
                 }
-                stdout(Category.PreprocessorStep2, $"Finished {_.LocalFile.FullName}");
+                stdout(Category.PreprocessorStep2, $"Finished {job.LocalFile.FullName}");
 
                 #endregion
 
                 #region Delete MP4 and statistics files
 
                 // Delete the input MP4 after MMRK is generated
-                if (_.LocalFile.Exists)
+                if (job.LocalFile.Exists)
                 {
-                    stdout(Category.Main, $"Deleting {_.LocalFile.FullName}");
-                    _.LocalFile.Delete();
+                    stdout(Category.Main, $"Deleting {job.LocalFile.FullName}");
+                    job.LocalFile.Delete();
                 }
-                if (_.StatsFile.Exists)
+                if (job.StatsFile.Exists)
                 {
-                    _.StatsFile.Delete();
+                    job.StatsFile.Delete();
                 }
-                if (File.Exists($"{_.StatsFile.FullName}.mbtree"))
+                if (File.Exists($"{job.StatsFile.FullName}.mbtree"))
                 {
-                    File.Delete($"{_.StatsFile.FullName}.mbtree");
+                    File.Delete($"{job.StatsFile.FullName}.mbtree");
                 }
 
                 #endregion
 
                 #region Upload MMRK
-                stdout(Category.UploadMMRK, $"Start Upload MMRK {_.MmrkFile.FullName}");
+                stdout(Category.UploadMMRK, $"Start Upload MMRK {job.MmrkFile.FullName}");
+                await table.LogPreprocessorAsync(job, $"Start Upload MMRK {job.MmrkFile.FullName}");
 
-                output = await _.MmrkFile.UploadToAsync(_.MmmrkURL);
+                output = await job.MmrkFile.UploadToAsync(job.MmmrkURL);
                 if (output.Success)
                 {
                     stdout(Category.UploadMMRK, output.Output);
-                    var queueOutput = await _.Queue.DispatchMessage(new NotificationPreprocessor
+                    await table.LogPreprocessorAsync(job, $"Finished upload MMRK {job.MmrkFile.FullName}");
+                    var queueOutput = await job.Queue.DispatchMessage(new NotificationPreprocessor
                     {
-                        AssetID = _.Job.AssetID,
-                        JobID = _.Job.JobID,
-                        FileName = _.Name,
+                        AssetID = job.Job.AssetID,
+                        JobID = job.Job.JobID,
+                        FileName = job.Name,
                         Status = JobStatus.Finished,
                         JobOutput = output.Output,
                         Stage = PreprocessorStage.UploadMMRK
@@ -430,11 +396,12 @@ namespace embedder
                 else
                 {
                     stderr(Category.UploadMMRK, output.Output);
-                    var queueOutput = await _.Queue.DispatchMessage(new NotificationPreprocessor
+                    await table.LogPreprocessorAsync(job, $"Problem upload MMRK {job.MmrkFile.FullName} {output.Output}");
+                    var queueOutput = await job.Queue.DispatchMessage(new NotificationPreprocessor
                     {
-                        AssetID = _.Job.AssetID,
-                        JobID = _.Job.JobID,
-                        FileName = _.Name,
+                        AssetID = job.Job.AssetID,
+                        JobID = job.Job.JobID,
+                        FileName = job.Name,
                         Status = JobStatus.Error,
                         JobOutput = output.Output,
                         Stage = PreprocessorStage.UploadMMRK
@@ -446,16 +413,17 @@ namespace embedder
 
                     return;
                 }
-                stdout(Category.UploadMMRK, $"End Upload MMRK {_.MmrkFile.FullName}");
+                stdout(Category.UploadMMRK, $"End Upload MMRK {job.MmrkFile.FullName}");
 
                 #endregion
             }
             else
             {
                 #region Download MMRK
-                stdout(Category.DownloadMMRK, $"Start Download MMRK {_.MmrkFile.FullName}");
+                stdout(Category.DownloadMMRK, $"Start Download MMRK {job.MmrkFile.FullName}");
+                await table.LogPreprocessorAsync(job, $"Start Download MMRK {job.MmrkFile.FullName}");
 
-                output = await _.MmmrkURL.DownloadToAsync(_.MmrkFile);
+                output = await job.MmmrkURL.DownloadToAsync(job.MmrkFile);
                 if (output.Success)
                 {
                     stdout(Category.DownloadMMRK, output.Output);
@@ -463,11 +431,12 @@ namespace embedder
                 else
                 {
                     stderr(Category.DownloadMMRK, output.Output);
-                    var queueOutput = await _.Queue.DispatchMessage(new NotificationEmbedder
+                    await table.LogPreprocessorAsync(job, $"Problem downloading MMRK {job.MmrkFile.FullName}: {output.Output}");
+                    var queueOutput = await job.Queue.DispatchMessage(new NotificationEmbedder
                     {
-                        AssetID = _.Job.AssetID,
-                        JobID = _.Job.JobID,
-                        FileName = _.Name,
+                        AssetID = job.Job.AssetID,
+                        JobID = job.Job.JobID,
+                        FileName = job.Name,
                         Status = JobStatus.Error,
                         JobOutput = output.Output,
                         Stage = EmbedderStage.DownloadMMRK
@@ -479,40 +448,19 @@ namespace embedder
 
                     return;
                 }
-                stdout(Category.DownloadMMRK, $"Finished Download MMRK {_.MmrkFile.FullName}");
+                stdout(Category.DownloadMMRK, $"Finished Download MMRK {job.MmrkFile.FullName}");
+                await table.LogPreprocessorAsync(job, $"Finished Download MMRK {job.MmrkFile.FullName}");
 
                 #endregion
             }
         }
 
-        private static IEnumerable<EmbedderJob> DetermineEmbedderJobs(EmbedderJobDTO job)
-        {
-            var embedderQueue = new CloudQueue(job.EmbedderNotificationQueue.AsUri());
-
-            var ej = job.EmbedderJobs.SelectMany(
-                _ => _.EmbedderItems,
-                (a, b) => new EmbedderJob
-                {
-                    Job = job,
-                    Name = b.FileName,
-                    UserID = a.UserID,
-                    MmrkURL = job.PreprocessorItems.FirstOrDefault(_ => _.FileName == b.FileName)?.MmrkUrl.AsUri(),
-                    MmrkFile = b.FileName.AsMmrkFile(),
-                    WatermarkedFile = b.FileName.AsWatermarkFileForUser(a.UserID),
-                    WatermarkedURL = b.WaterMarkedMp4.AsUri(),
-                    Queue = embedderQueue
-
-                })
-            .Where(_ => _.MmrkURL != null);
-
-            return ej;
-        }
-
-        private static async Task RunEmbedderAsync(EmbedderJob _, Action<Category, string> stdout, Action<Category, string> stderr)
+        private static async Task RunEmbedderAsync(EmbedderJob job, Action<Category, string> stdout, Action<Category, string> stderr, TableWrapper table)
         {
             #region Embedder
 
-            stdout(Category.Embedder, $"Start embed {_.UserID} into {_.WatermarkedFile.FullName}");
+            stdout(Category.Embedder, $"Start embed {job.UserID} into {job.WatermarkedFile.FullName}");
+            await table.LogEmbedderAsync(job, $"Start embed {job.UserID} into {job.WatermarkedFile.FullName}");
 
             var embedderOutput = await Utils.RunProcessAsync(
                 prefix: "EMBEDDER",
@@ -521,26 +469,28 @@ namespace embedder
                     { "TMPDIR", Environment.CurrentDirectory }
                 },
                 arguments: new[] {
-                    _.MmrkFile.FullName,
-                    _.UserID,
-                    _.WatermarkedFile.FullName }
+                    job.MmrkFile.FullName,
+                    job.UserID,
+                    job.WatermarkedFile.FullName }
             );
 
 
             if (embedderOutput.Success)
             {
-                stdout(Category.Embedder, $"Finished embed {_.UserID} into {_.WatermarkedFile.FullName}");
+                stdout(Category.Embedder, $"Finished embed {job.UserID} into {job.WatermarkedFile.FullName}");
+                await table.LogEmbedderAsync(job, $"Finished embed {job.UserID} into {job.WatermarkedFile.FullName}");
                 // stdout(Category.Embedder, embedderOutput.Output);
             }
             else
             {
                 stderr(Category.Embedder, embedderOutput.Output);
-                var queueOutput = await _.Queue.DispatchMessage(new NotificationEmbedder
+                await table.LogEmbedderAsync(job, $"Problem embed {job.UserID} into {job.WatermarkedFile.FullName}: {embedderOutput.Output}");
+                var queueOutput = await job.Queue.DispatchMessage(new NotificationEmbedder
                 {
-                    AssetID = _.Job.AssetID,
-                    JobID = _.Job.JobID,
-                    FileName = _.Name,
-                    UserID = _.UserID,
+                    AssetID = job.Job.AssetID,
+                    JobID = job.Job.JobID,
+                    FileName = job.Name,
+                    UserID = job.UserID,
                     Status = JobStatus.Error,
                     JobOutput = embedderOutput.Output
                 });
@@ -556,17 +506,20 @@ namespace embedder
 
             #region Upload
 
-            stdout(Category.UploadWatermarked, $"Start upload {_.UserID} {_.WatermarkedFile.FullName}");
-            var uploadResult = await _.WatermarkedFile.UploadToAsync(_.WatermarkedURL);
-            stdout(Category.UploadWatermarked, $"Finished upload {_.UserID} {_.WatermarkedFile.FullName}");
+            stdout(Category.UploadWatermarked, $"Start upload {job.UserID} {job.WatermarkedFile.FullName}");
+            await table.LogEmbedderAsync(job, $"Start upload {job.UserID} {job.WatermarkedFile.FullName}");
+
+            var uploadResult = await job.WatermarkedFile.UploadToAsync(job.WatermarkedURL);
             if (uploadResult.Success)
             {
-                var queueOutput = await _.Queue.DispatchMessage(new NotificationEmbedder
+                stdout(Category.UploadWatermarked, $"Finished upload {job.UserID} {job.WatermarkedFile.FullName}");
+                await table.LogEmbedderAsync(job, $"Finished upload {job.UserID} {job.WatermarkedFile.FullName}");
+                var queueOutput = await job.Queue.DispatchMessage(new NotificationEmbedder
                 {
-                    AssetID = _.Job.AssetID,
-                    JobID = _.Job.JobID,
-                    FileName = _.Name,
-                    UserID = _.UserID,
+                    AssetID = job.Job.AssetID,
+                    JobID = job.Job.JobID,
+                    FileName = job.Name,
+                    UserID = job.UserID,
                     Status = JobStatus.Finished,
                     JobOutput = uploadResult.Output
                 });
@@ -577,12 +530,13 @@ namespace embedder
             }
             else
             {
-                var queueOutput = await _.Queue.DispatchMessage(new NotificationEmbedder
+                await table.LogEmbedderAsync(job, $"Problem uploading {job.UserID} / {job.WatermarkedFile.FullName}: {uploadResult.Output}");
+                var queueOutput = await job.Queue.DispatchMessage(new NotificationEmbedder
                 {
-                    AssetID = _.Job.AssetID,
-                    JobID = _.Job.JobID,
-                    FileName = _.Name,
-                    UserID = _.UserID,
+                    AssetID = job.Job.AssetID,
+                    JobID = job.Job.JobID,
+                    FileName = job.Name,
+                    UserID = job.UserID,
                     Status = JobStatus.Error, 
                     JobOutput = uploadResult.Output
                 });
@@ -603,10 +557,10 @@ namespace embedder
                    sleepDurationProvider: attempt => TimeSpan.FromSeconds(1))
                .Execute(() =>
                {
-                   if (_.WatermarkedFile.Exists)
+                   if (job.WatermarkedFile.Exists)
                    {
-                       stdout(Category.Main, $"Delete {_.WatermarkedFile.FullName}");
-                       _.WatermarkedFile.Delete();
+                       stdout(Category.Main, $"Delete {job.WatermarkedFile.FullName}");
+                       job.WatermarkedFile.Delete();
                    }
                });
 

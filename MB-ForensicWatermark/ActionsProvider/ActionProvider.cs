@@ -15,6 +15,8 @@ using Microsoft.WindowsAzure.Storage.Queue;
 using System.Diagnostics;
 using ActionsProvider.K8S;
 using Microsoft.WindowsAzure.Storage.Blob;
+using System.IO;
+using System.Configuration;
 
 namespace ActionsProvider
 {
@@ -629,36 +631,43 @@ namespace ActionsProvider
         }
 
         #endregion
+
         #region K8S JOBS
-        private string GetJobYmal(string JobID, string JOBBASE64, string imagename, string PARALLELEMBEDDERS)
+
+        private string GetJobYaml(string JobID, string JOBBASE64, string imagename, string PARALLELEMBEDDERS, string loggingTable)
         {
             string path;
-            if (Environment.GetEnvironmentVariable("HOME") != null)
+            if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("HOME")))
             {
-                path = Environment.GetEnvironmentVariable("HOME") + @"\site\wwwroot" + @"\Files\jobBase.txt";
+                path = Path.Combine(Environment.GetEnvironmentVariable("HOME"), "site", "wwwroot", "Files", "jobBase.yaml");
             }
             else
             {
-                path = @".\Files\jobBase.txt";
+                path = Path.Combine(".", "Files", "jobBase.yaml");
             }
-            string ymal = System.IO.File.ReadAllText(path);
-            //JobID lowercase becouse K8S Job Name don't support uppercases
-            ymal = ymal.Replace("[JOBNAME]", "allinone-job-" + JobID.ToLower());
-            //Same JOb ID for all jobs and pods, Label is original JobID
-            ymal= ymal.Replace("[JOBID]",  JobID.Substring(0,JobID.IndexOf("-")));
-            ymal = ymal.Replace("[IMAGENAME]", imagename);
-            ymal = ymal.Replace("[PARALLELEMBEDDERS]", PARALLELEMBEDDERS);
-            return ymal.Replace("[JOBBASE64]", JOBBASE64);
+
+            string yaml = System.IO.File.ReadAllText(path);
+            yaml = yaml.Replace("[JOBNAME]", "allinone-job-" + JobID.ToLower()); //JobID lowercase becouse K8S Job Name don't support uppercases
+            yaml = yaml.Replace("[JOBID]",  JobID.Substring(0,JobID.IndexOf("-"))); //Same JOb ID for all jobs and pods, Label is original JobID
+            yaml = yaml.Replace("[IMAGENAME]", imagename);
+            yaml = yaml.Replace("[PARALLELEMBEDDERS]", PARALLELEMBEDDERS);
+            yaml = yaml.Replace("[JOBBASE64]", JOBBASE64);
+            yaml = yaml.Replace("[LOGGINGTABLE]", loggingTable);
+            return yaml;
         }
+
         string GetBlobSasUri(Microsoft.WindowsAzure.Storage.Blob.CloudBlockBlob blockBlob)
         {
-            SharedAccessBlobPolicy sasConstraints = new SharedAccessBlobPolicy();
-            sasConstraints.SharedAccessStartTime = DateTimeOffset.UtcNow.AddMinutes(-5);
-            sasConstraints.SharedAccessExpiryTime = DateTimeOffset.UtcNow.AddHours(24);
-            sasConstraints.Permissions = SharedAccessBlobPermissions.Read;
+            SharedAccessBlobPolicy sasConstraints = new SharedAccessBlobPolicy
+            {
+                SharedAccessStartTime = DateTimeOffset.UtcNow.AddMinutes(-5),
+                SharedAccessExpiryTime = DateTimeOffset.UtcNow.AddHours(24),
+                Permissions = SharedAccessBlobPermissions.Read
+            };
             string sasBlobToken = blockBlob.GetSharedAccessSignature(sasConstraints);
             return blockBlob.Uri + sasBlobToken;
         }
+
         private string SaveBlobData(string Data, string BlobName)
         {
             string sas = null;
@@ -672,14 +681,15 @@ namespace ActionsProvider
         }
         public async Task<K8SResult> SubmiteJobK8S(ManifestInfo manifest, int subId)
         {
-            //Create Yamal Job definition
+            //Create YAML Job definition
             manifest.JobID = $"{manifest.JobID}-{subId}";
             string manifesttxt = Newtonsoft.Json.JsonConvert.SerializeObject(manifest);
             //Save JOB data on Blob Storage And Generate a SASURL
             string jobbase64 = SaveBlobData(manifesttxt,$"{manifest.JobID}.json");
-            string imageName = System.Configuration.ConfigurationManager.AppSettings["imageName"];
-            string PARALLELEMBEDDERS = System.Configuration.ConfigurationManager.AppSettings["PARALLELEMBEDDERS"] ?? "5";
-            string jobtxt = GetJobYmal(manifest.JobID, jobbase64, imageName, PARALLELEMBEDDERS);
+            string imageName = ConfigurationManager.AppSettings["imageName"];
+            string PARALLELEMBEDDERS = ConfigurationManager.AppSettings["PARALLELEMBEDDERS"] ?? "5";
+            string loggingTable = ConfigurationManager.AppSettings["Storageconn"] ?? string.Empty;
+            string jobtxt = GetJobYaml(manifest.JobID, jobbase64, imageName, PARALLELEMBEDDERS, loggingTable: loggingTable);
             HttpContent ymal = new StringContent(jobtxt, Encoding.UTF8, "application/yaml");
             SaveBlobData(jobtxt, $"{manifest.JobID}.ymal");
             // Submite JOB
