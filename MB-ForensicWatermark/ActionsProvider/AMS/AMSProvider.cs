@@ -19,7 +19,7 @@ namespace ActionsProvider.AMS
 {
     class AMSProvider : IAMSProvider
     {
-        string _WaterMarkStorageConStr;
+        //string _WaterMarkStorageConStr;
         CloudMediaContext _mediaContext;
         CloudStorageAccount _WaterMArkStorageAccount;
         CloudBlobClient _WaterMArkStorageBlobClient;
@@ -31,17 +31,17 @@ namespace ActionsProvider.AMS
         CloudBlobClient _AMSCOPYBlobClient;
         string _PUBLISHWATERKEDCOPY;
         int _SASTTL;
-       
-        public AMSProvider(string TenantId, string ClientId, string ClientSecret, Uri AMSApiUri, string WaterMarkStorageConStr, string AMSStorageConStr,string PUBLISHWATERKEDCOPY, int sasTtl)
+
+        public AMSProvider(string TenantId, string ClientId, string ClientSecret, Uri AMSApiUri, CloudStorageAccount WaterMarkStorageAcc, string AMSStorageConStr, string PUBLISHWATERKEDCOPY, int sasTtl)
         {
             AzureAdClientSymmetricKey clientSymmetricKey = new AzureAdClientSymmetricKey(ClientId, ClientSecret);
             var tokenCredentials = new AzureAdTokenCredentials(TenantId, clientSymmetricKey, AzureEnvironments.AzureCloudEnvironment);
             var tokenProvider = new AzureAdTokenProvider(tokenCredentials);
             _mediaContext = new CloudMediaContext(AMSApiUri, tokenProvider);
             //WaterMarkStorage
-            _WaterMArkStorageAccount = CloudStorageAccount.Parse(WaterMarkStorageConStr);
+            _WaterMArkStorageAccount = WaterMarkStorageAcc;
             _WaterMArkStorageBlobClient = _WaterMArkStorageAccount.CreateCloudBlobClient();
-            _WaterMarkStorageConStr = WaterMarkStorageConStr;
+            //_WaterMarkStorageConStr = WaterMarkStorageConStr;
             //AMS Default Stoarge
             _AMSDefaultStorageAccount = CloudStorageAccount.Parse(AMSStorageConStr);
             _AMSDefaultStorageBlobClient = _AMSDefaultStorageAccount.CreateCloudBlobClient();
@@ -123,7 +123,7 @@ namespace ActionsProvider.AMS
             };
             var EncodeFileName = System.Web.HttpUtility.UrlPathEncode(videoinfo.FileName);
 
-            IActionsProvider xman = ActionProviderFactory.GetActionProvider();
+            IActionsProvider xman = ActionProviderFactory.GetActionProvider(_WaterMArkStorageAccount);
             var assetStatus = xman.GetAssetStatus(theAsset.Id);
             if (assetStatus.State == ExecutionStatus.Finished)
             {
@@ -440,93 +440,75 @@ namespace ActionsProvider.AMS
             }
             return result;
         }
-        public async Task<WMAssetOutputMessage> AddWatermarkedMediaFiletoAsset(string WatermarkedAssetId, string WMEmbedCode, string MMRKURL)
+        private async Task<WMAssetOutputMessage> AddRenderToAsset(CloudBlockBlob sourceBlob, CloudBlockBlob destBlob,IAssetFile renderFile, string WMEmbedCode, string WatermarkedAssetId)
         {
-            WMAssetOutputMessage result = new WMAssetOutputMessage();
-            List<string> detailLog = new List<string>();
-            if ((WatermarkedAssetId is null) || (WMEmbedCode is null) || (MMRKURL is null))
+            WMAssetOutputMessage result = new WMAssetOutputMessage()
             {
-                result.Status = "ERROR";
-                result.StatusMessage = "Either Source Asset or WM Embed Code missing.";
-                return result;
-            }
-            //Expanded Try area for possible BLOB errors
+                MMRKURLAdded = sourceBlob.Uri.AbsoluteUri,
+                EmbedCode = WMEmbedCode,
+                WMAssetId = WatermarkedAssetId
+            };
             try
             {
-                IAsset WatermarkedAsset = _mediaContext.Assets.Where(a => a.Id == WatermarkedAssetId).FirstOrDefault();
-                detailLog.Add($"GetAsset id={WatermarkedAsset.Id}");
-                string containerName = ConvertMediaAssetIdToStorageContainerName(WatermarkedAsset.Id);
-                detailLog.Add($"containerName = {containerName}");
-                //CloudBlobContainer GetAssetCopyBlobClient
-                CloudBlobContainer DestinationBlobContainer = GetAssetCopyBlobClient(WatermarkedAsset).GetContainerReference(containerName);
-                detailLog.Add($"DestinationBlobContainer = {DestinationBlobContainer}");
-                CloudBlockBlob sourceBlob = new CloudBlockBlob(new Uri(MMRKURL));
-                detailLog.Add($"sourceBlob = {sourceBlob.Name}");
-                // Get a reference to the destination blob (in this case, a new blob).
                 string name = HttpUtility.UrlDecode(HttpUtility.UrlDecode(Path.GetFileName(sourceBlob.Uri.AbsolutePath)));
-                detailLog.Add($"detination blob name  = {name}");
-                CloudBlockBlob destBlob = DestinationBlobContainer.GetBlockBlobReference(name);
-                detailLog.Add($"destBlob  = {destBlob.Name}");
-                string copyId = null;
-                copyId = await destBlob.StartCopyAsync(sourceBlob);
-                detailLog.Add($"Finish StartCopyAsync  = {sourceBlob.Name}");
-
-                result.MMRKURLAdded = MMRKURL;
+                string copyId = await destBlob.StartCopyAsync(sourceBlob);
+                await sourceBlob.FetchAttributesAsync();
+                renderFile.ContentFileSize = sourceBlob.Properties.Length;
+                await renderFile.UpdateAsync();
                 result.Status = "MMRK File Added";
                 result.StatusMessage = destBlob.Name + " added to watermarked asset";
-                result.EmbedCode = WMEmbedCode;
-                result.WMAssetId = WatermarkedAssetId;
-
-                var currentFile = WatermarkedAsset.AssetFiles.Create(name);
-                detailLog.Add($"currentFile  = {currentFile.Name}");
-                sourceBlob.FetchAttributes();
-                detailLog.Add($"FetchAttributes");
-                currentFile.ContentFileSize = sourceBlob.Properties.Length;
-                currentFile.Update();
-                detailLog.Add($"currentFile.Update()");
-
-                WatermarkedAsset.Update();
-                detailLog.Add($"Asset.Update();");
-
-                #region Add Locator to new Media Asset
-                if (_PUBLISHWATERKEDCOPY.ToLower()=="true")
-                {
-                    if (WatermarkedAsset.Locators.Where(l => l.Type == LocatorType.OnDemandOrigin).Count() == 0)
-                    {
-                        // This could be done at the "end", once for each newly created asset, instead of doing it after each file is added to the newly created asset
-                        LocatorType locatorType = LocatorType.OnDemandOrigin;
-                        AccessPermissions accessPolicyPermissions = AccessPermissions.Read | AccessPermissions.List;
-                        TimeSpan accessPolicyDuration = new TimeSpan(100 * 365, 1, 1, 1, 1);  // 100 years
-                        DateTime locaatorStartDate = DateTime.Now;
-                        string forceLocatorGuid = null;
-
-                        ProcessCreateLocator(locatorType, WatermarkedAsset, accessPolicyPermissions, accessPolicyDuration, locaatorStartDate, forceLocatorGuid);
-                    }
-                    else
-                    {
-                        Trace.TraceInformation($"Assset {WatermarkedAsset.Id} already has OndemandOrigin");
-                    }
-                }
-                #endregion
-
             }
-            catch (StorageException e)
+            catch (Exception X)
             {
-                Trace.TraceError(e.Message);
-                //throw;
-                result.MMRKURLAdded = MMRKURL;
                 result.Status = $"Copy error";
                 //Add Blob Info to the error
-                result.StatusMessage = $"{MMRKURL} Error {e.Message} {String.Join(Environment.NewLine,detailLog.ToArray())}"; 
-                result.EmbedCode = WMEmbedCode;
-                result.WMAssetId = WatermarkedAssetId;
-               
-            }
-            finally
-            {
-
+                result.StatusMessage = $"{sourceBlob.Uri.AbsoluteUri} Error {X.Message}" ;
+                Trace.TraceError(result.StatusMessage);
             }
             return result;
+        }
+        public async Task<List<WMAssetOutputMessage>> AddWatermarkedRendersFiletoAsset(string assetId, List<UnifiedResponse.WaterMarkedRender> Renders, string WMEmbedCode)
+        {
+            List<WMAssetOutputMessage> resultAll = new List<WMAssetOutputMessage>();
+            try
+            {
+                IAsset WatermarkedAsset = _mediaContext.Assets.Where(a => a.Id == assetId).FirstOrDefault();
+                string containerName = ConvertMediaAssetIdToStorageContainerName(WatermarkedAsset.Id);
+                CloudBlobContainer DestinationBlobContainer = GetAssetCopyBlobClient(WatermarkedAsset).GetContainerReference(containerName);
+
+                List<Task<WMAssetOutputMessage>> renderTask = new List<Task<WMAssetOutputMessage>>();
+                //Each
+                foreach (var myRender in Renders)
+                {
+                    CloudBlockBlob sourceBlob = new CloudBlockBlob(new Uri(myRender.MP4URL));
+                    string name = HttpUtility.UrlDecode(HttpUtility.UrlDecode(Path.GetFileName(sourceBlob.Uri.AbsolutePath)));
+                    CloudBlockBlob destBlob = DestinationBlobContainer.GetBlockBlobReference(name);
+                    IAssetFile currentFile = WatermarkedAsset.AssetFiles.Create(name);
+                    renderTask.Add(AddRenderToAsset(sourceBlob, destBlob, currentFile, WMEmbedCode, WatermarkedAsset.Id));
+                    //renderTask.LastOrDefault().Start();
+                    await Task.Delay(500);
+                }
+
+                Task.WaitAll(renderTask.ToArray());
+
+                foreach (var t in renderTask)
+                {
+                    resultAll.Add(t.Result);
+                }
+            }
+            catch (Exception X)
+            {
+                var error = new WMAssetOutputMessage()
+                { 
+                    EmbedCode= WMEmbedCode,
+                    MMRKURLAdded="",
+                    Status=$"Error Multi render level",
+                    StatusMessage= $"Error Multi render level {X.Message}",
+                    WMAssetId= assetId
+                };
+                resultAll.Add(error);
+            }
+            return resultAll;
         }
         #endregion
     }

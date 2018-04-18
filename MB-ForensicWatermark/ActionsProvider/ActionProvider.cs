@@ -31,14 +31,16 @@ namespace ActionsProvider
         CloudTableClient tableClient;
         CloudTable _ProcessStatusTable;
         CloudTable _MMRKSttausTable;
+        CloudTable _WaterMarkRenderTable;
 
         CloudTable _AssetStatus;
         CloudTable _WaterMarkedAssetInfo;
 
         int _embeddedmessagecount = 10;
-        public ActionProvider(string strConn, int embeddedmessagecount)
+
+        public ActionProvider(CloudStorageAccount WaterMarkStorageAcc, int embeddedmessagecount)
         {
-            storageAccount = CloudStorageAccount.Parse(strConn);
+            storageAccount = WaterMarkStorageAcc;
             tableClient = storageAccount.CreateCloudTableClient();
             _ProcessStatusTable = tableClient.GetTableReference(ReferenceNames.ProcessStatus);
             _MMRKSttausTable = tableClient.GetTableReference("mmrkStatus");
@@ -49,29 +51,36 @@ namespace ActionsProvider
             _AssetStatus.CreateIfNotExists();
             _WaterMarkedAssetInfo.CreateIfNotExists();
 
+            _WaterMarkRenderTable= tableClient.GetTableReference(ReferenceNames.WaterMarkedRender);
+            _WaterMarkRenderTable.CreateIfNotExists();
+
             _embeddedmessagecount = embeddedmessagecount;
         }
-
-        public UnifiedResponse.WaterMarkedRender UpdateWaterMarkedRender(UnifiedResponse.WaterMarkedRender renderData)
+        public async Task UpdateWaterMarkedRender(List<WaterMarkedRender> renderList)
+        {
+            TableBatchOperation batchOperation = new TableBatchOperation();
+            foreach (var render in renderList)
+            {
+                batchOperation.Insert(new UnifiedResponse.TWaterMarkedRender(render));
+            }
+            await _WaterMarkRenderTable.ExecuteBatchAsync(batchOperation);
+        }
+        public async Task<UnifiedResponse.WaterMarkedRender> UpdateWaterMarkedRender(UnifiedResponse.WaterMarkedRender renderData)
         {
             UnifiedResponse.TWaterMarkedRender myStatus = new UnifiedResponse.TWaterMarkedRender(renderData);
-            var myTable = tableClient.GetTableReference("WaterMarkedRender");
-            myTable.CreateIfNotExists();
             TableOperation InsertOrReplace = TableOperation.InsertOrReplace(myStatus);
-            myTable.Execute(InsertOrReplace);
+            await _WaterMarkRenderTable.ExecuteAsync(InsertOrReplace);
             return renderData;
         }
         public List<UnifiedResponse.WaterMarkedRender> GetWaterMarkedRenders(string ParentAssetID, string EmbebedCodeValue)
         {
             List<UnifiedResponse.WaterMarkedRender> myList = new List<UnifiedResponse.WaterMarkedRender>();
-            var wmrTable = tableClient.GetTableReference(ReferenceNames.WaterMarkedRender);
-            wmrTable.CreateIfNotExists();
 
             TableQuery<UnifiedResponse.TWaterMarkedRender> query =
                 new TableQuery<UnifiedResponse.TWaterMarkedRender>().Where(TableQuery.GenerateFilterCondition(
                     "PartitionKey", QueryComparisons.Equal, $"{ParentAssetID}-{EmbebedCodeValue}"));
 
-            var wmrTList = wmrTable.ExecuteQuery(query);
+            var wmrTList = _WaterMarkRenderTable.ExecuteQuery(query);
 
             foreach (var item in wmrTList)
             {
@@ -89,10 +98,8 @@ namespace ActionsProvider
                 AssetID = ParentAssetID,
 
             };
-            var myTable = tableClient.GetTableReference(ReferenceNames.WaterMarkedRender);
-            myTable.CreateIfNotExists();
             TableOperation retrieveOperation = TableOperation.Retrieve<UnifiedResponse.TWaterMarkedRender>($"{ParentAssetID}-{EmbebedCodeValue}", RenderName);
-            TableResult retrievedResult = myTable.Execute(retrieveOperation);
+            TableResult retrievedResult = _WaterMarkRenderTable.Execute(retrieveOperation);
             if (retrievedResult.Result != null)
             {
                 x = ((UnifiedResponse.TWaterMarkedRender)retrievedResult.Result).GetWaterMarkedRender();
@@ -104,8 +111,6 @@ namespace ActionsProvider
         public async Task<int> DeleteWatermarkedRenderTmpInfo(List<UnifiedResponse.WaterMarkedRender> WatermarkedRenders)
         {
             int deleted = 0;
-            var wmrTable = tableClient.GetTableReference(ReferenceNames.WaterMarkedRender);
-            wmrTable.CreateIfNotExists();
             try
             {
                 TableBatchOperation batchOperation = new TableBatchOperation();
@@ -116,7 +121,7 @@ namespace ActionsProvider
                     batchOperation.Delete(tRender);
                     deleted += 1;
                 }
-                var X = await wmrTable.ExecuteBatchAsync(batchOperation);
+                var X = await _WaterMarkRenderTable.ExecuteBatchAsync(batchOperation);
             }
             catch (Exception X)
             {
@@ -527,14 +532,12 @@ namespace ActionsProvider
 
             if (currentWaterMarkInfo.State == ExecutionStatus.Running)
             {
-                var wmrTable = tableClient.GetTableReference(ReferenceNames.WaterMarkedRender);
-                wmrTable.CreateIfNotExists();
 
                 TableQuery<UnifiedResponse.TWaterMarkedRender> query =
                     new TableQuery<UnifiedResponse.TWaterMarkedRender>().Where(TableQuery.GenerateFilterCondition(
                         "PartitionKey", QueryComparisons.Equal, $"{ParentAssetID}-{EmbebedCodeValue}"));
 
-                var wmrList = wmrTable.ExecuteQuery(query);
+                var wmrList = _WaterMarkRenderTable.ExecuteQuery(query);
                 if (wmrList != null)
                 {
                     var wmErrorList = wmrList.Where(m => m.State == ExecutionStatus.Error.ToString());

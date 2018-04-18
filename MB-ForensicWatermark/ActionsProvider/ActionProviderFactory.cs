@@ -5,18 +5,17 @@
 
 namespace ActionsProvider
 {
+  
     public class ActionProviderFactory
     {
-       public static IActionsProvider GetActionProvider()
+        public static IActionsProvider GetActionProvider(Microsoft.WindowsAzure.Storage.CloudStorageAccount WaterMarkStorageAcc)
         {
-            string Storageconn = System.Configuration.ConfigurationManager.AppSettings["Storageconn"];
-            int embeddedmessagecount =int.Parse( System.Configuration.ConfigurationManager.AppSettings["embeddedmessagecount"] ?? "10");
+            int embeddedmessagecount = int.Parse(System.Configuration.ConfigurationManager.AppSettings["embeddedmessagecount"] ?? "10");
             if (embeddedmessagecount > 32)
             {
                 embeddedmessagecount = 32;
             }
-               
-            return new ActionProvider(Storageconn, embeddedmessagecount);
+            return new ActionProvider(WaterMarkStorageAcc, embeddedmessagecount);
         }
     }
 }

@@ -895,8 +895,75 @@
                         }
                       },
                       "runAfter": {
+                        "CatchPreprocessorCreateMMRK": [
+                          "Succeeded",
+                          "Skipped"
+                        ],
                         "EmbedderCopies": [
-                          "Succeeded"
+                          "Succeeded",
+                          "Skipped"
+                        ]
+                      }
+                    },
+                    "CatchPreprocessorCreateMMRK": {
+                      "type": "Scope",
+                      "actions": {
+                        "IsMMRKFinished": {
+                          "type": "If",
+                          "expression": {
+                            "and": [
+                              {
+                                "not": {
+                                  "equals": [
+                                    "@variables('AssetStatusState')",
+                                    "Finished"
+                                  ]
+                                }
+                              }
+                            ]
+                          },
+                          "actions": {
+                            "AssetStatusStateUpdate2Error": {
+                              "type": "SetVariable",
+                              "inputs": {
+                                "name": "AssetStatusState",
+                                "value": "Error"
+                              },
+                              "runAfter": {}
+                            }
+                          },
+                          "runAfter": {}
+                        },
+                        "UpdateJobStatusMMRKException": {
+                          "type": "Http",
+                          "inputs": {
+                            "method": "POST",
+                            "uri": "[variables('Error_Asset_MMRK_URI')]",
+                            "headers": {
+                              "Content-Type": "application/json"
+                            },
+                            "body": {
+                              "AssetStatus": "@{variables('AssetStatusState')}",
+                              "JobState": "Error",
+                              "JobStateDetails": "Exception on MMKR creation files, Error on activity",
+                              "Manifest": "@json(variables('CurrentManifes'))",
+                              "WaterMarkCopiesStatus": "Aborted",
+                              "WaterMarkCopiesStatusDetails": "Watermark copies aborted becouse MMRK Activity fialed"
+                            },
+                            "retryPolicy": {
+                              "type": "none"
+                            }
+                          },
+                          "runAfter": {
+                            "IsMMRKFinished": [
+                              "Succeeded"
+                            ]
+                          }
+                        }
+                      },
+                      "runAfter": {
+                        "PreprocessorCreateMMRK": [
+                          "Failed"
                         ]
                       }
                     }

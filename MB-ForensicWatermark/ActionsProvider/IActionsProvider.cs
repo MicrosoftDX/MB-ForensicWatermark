@@ -13,7 +13,6 @@ namespace ActionsProvider
     public interface IActionsProvider
     {
         MMRKStatus UpdateMMRKStatus(MMRKStatus mmrkStatus);
-        
         UnifiedResponse.UnifiedProcessStatus StartNewProcess(string AssetId, string JobId, string[] EmbebedCodeList);
         MMRKStatus GetMMRKStatus(string AsssetId, string JobRender);
         List<MMRKStatus> GetMMRKStatusList(string AssetID);
@@ -21,7 +20,7 @@ namespace ActionsProvider
         Task<int> EvalPreprocessorNotifications(string JobId);
         Task<int> EvalPEmbeddedNotifications(string JobId);
         UnifiedResponse.AssetStatus EvalAssetStatus(string AssetId);
-        UnifiedResponse.WaterMarkedRender UpdateWaterMarkedRender(UnifiedResponse.WaterMarkedRender renderData);
+        Task<UnifiedResponse.WaterMarkedRender> UpdateWaterMarkedRender(UnifiedResponse.WaterMarkedRender renderData);
         UnifiedResponse.WaterMarkedRender GetWaterMarkedRender(string ParentAssetID, string EmbebedCodeValue, string RenderName);
         List<UnifiedResponse.WaterMarkedRender> GetWaterMarkedRenders(string ParentAssetID, string EmbebedCodeValue);
         UnifiedResponse.WaterMarkedAssetInfo EvalWaterMarkedAssetInfo(string ParentAssetID, string EmbebedCodeValue);
@@ -32,6 +31,7 @@ namespace ActionsProvider
         List<ManifestInfo> GetK8SManifestInfo(int aggregationLevel, int aggregationLevelOnlyEmb, ManifestInfo manifest);
         Task<int> DeleteWatermarkedRenderTmpInfo(List<UnifiedResponse.WaterMarkedRender> WatermarkedRenders);
         void UpdateWaterMarkedAssetInfo(UnifiedResponse.WaterMarkedAssetInfo data, string ParentAssetId);
+        Task UpdateWaterMarkedRender(List<UnifiedResponse.WaterMarkedRender> renderList);
         Task<bool> GetAssetProcessLock(string AssetId, string JobID, TimeSpan timeOut, TimeSpan delay);
         Task ReleaseAssetProcessLock(string AssetId, string JobID);
     }
