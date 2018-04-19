@@ -147,25 +147,32 @@ namespace WaterMarkingActions
         {
             IActionsProvider myActions = ActionProviderFactory.GetActionProvider(SingleWaterMarkStorageAccInstanceController);
             dynamic BodyData = await req.Content.ReadAsAsync<object>();
-            EnbebedCode myCode = BodyData.EnbebedCode.ToObject<EnbebedCode>();
-            string ParentAssetID = BodyData.ParentAssetID;
-            List<WaterMarkedRender> RenderList = new List<WaterMarkedRender>();
-            foreach (var info in myCode.MP4WatermarkedURL)
+            try
             {
-                WaterMarkedRender data = new WaterMarkedRender()
+                EnbebedCode myCode = BodyData.EnbebedCode.ToObject<EnbebedCode>();
+                string ParentAssetID = BodyData.ParentAssetID;
+                List<WaterMarkedRender> RenderList = new List<WaterMarkedRender>();
+                foreach (var info in myCode.MP4WatermarkedURL)
                 {
-                    Details = "Submited",
-                    EmbebedCodeValue = myCode.EmbebedCode,
-                    MP4URL = info.WaterMarkedMp4,
-                    RenderName = info.FileName,
-                    ParentAssetID = ParentAssetID,
-                    State = ExecutionStatus.Running
-
-                };
-                RenderList.Add(data);
+                    WaterMarkedRender data = new WaterMarkedRender()
+                    {
+                        Details = "Submited",
+                        EmbebedCodeValue = myCode.EmbebedCode,
+                        MP4URL = info.WaterMarkedMp4,
+                        RenderName = info.FileName,
+                        ParentAssetID = ParentAssetID,
+                        State = ExecutionStatus.Running
+                    };
+                    RenderList.Add(data);
+                }
+                //Update all renders in a single call
+                await myActions.UpdateWaterMarkedRender(RenderList);
             }
-            //Update all renders in a single call
-            await myActions.UpdateWaterMarkedRender(RenderList);
+            catch (Exception X)
+            {
+                return req.CreateResponse(HttpStatusCode.InternalServerError, new { Error = X.Message }, JsonMediaTypeFormatter.DefaultMediaType);
+            }
+            
             return req.CreateResponse(HttpStatusCode.OK, new { Status = ExecutionStatus.Finished.ToString() }, JsonMediaTypeFormatter.DefaultMediaType);
         }
         [FunctionName("EvalEnbebedCodes")]

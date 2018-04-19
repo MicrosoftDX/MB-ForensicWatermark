@@ -63,7 +63,7 @@ namespace ActionsProvider
             TableBatchOperation batchOperation = new TableBatchOperation();
             foreach (var render in renderList)
             {
-                batchOperation.Insert(new UnifiedResponse.TWaterMarkedRender(render));
+                batchOperation.InsertOrReplace(new UnifiedResponse.TWaterMarkedRender(render));
             }
             await _WaterMarkRenderTable.ExecuteBatchAsync(batchOperation);
         }
