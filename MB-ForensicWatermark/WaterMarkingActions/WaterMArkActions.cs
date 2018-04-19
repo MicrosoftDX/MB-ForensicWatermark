@@ -58,7 +58,7 @@ namespace WaterMarkingActions
                 }
                 log.Info($"[{JobID}] Locked");
                 //Star Process 
-                var status = myActions.StartNewProcess(AssetID, JobID, EmbebedCodes);
+                var status = await myActions.StartNewProcess(AssetID, JobID, EmbebedCodes);
                 //Unlock trafic light to other process to StarNewProcess
                 await myActions.ReleaseAssetProcessLock(AssetID, JobID);
                 log.Info($"[{JobID}] unLocked");
@@ -109,11 +109,11 @@ namespace WaterMarkingActions
             if (MMRK.FileURL == "{NO UPDATE}")
             {
                 string jobRender = $"[{MMRK.JobID}]{MMRK.FileName}";
-                var currentMMRKStatus = myActions.GetMMRKStatus(MMRK.AssetID, jobRender);
+                var currentMMRKStatus =await  myActions.GetMMRKStatus(MMRK.AssetID, jobRender);
                 string url = currentMMRKStatus.FileURL;
                 MMRK.FileURL = url;
             }
-            myActions.UpdateMMRKStatus(MMRK);
+            await myActions.UpdateMMRKStatus(MMRK);
             return req.CreateResponse(HttpStatusCode.OK, MMRK, JsonMediaTypeFormatter.DefaultMediaType);
         }
         [FunctionName("EvalAssetStatus")]
@@ -132,7 +132,7 @@ namespace WaterMarkingActions
             if (OriginalAssetStatus != manifest.AssetStatus.State)
             {
                 //3. Update Manifest/ all process
-                myActions.UpdateUnifiedProcessStatus(manifest);
+                await myActions.UpdateUnifiedProcessStatus(manifest);
                 //4. Log and replay
                 log.Info($"[{manifest.JobStatus.JobID}] Preprocessor Notifications processed {nNotification} / Updated AssetId {manifest.AssetStatus.AssetId} Status {manifest.AssetStatus.State.ToString()} / previus status {OriginalAssetStatus}");
             }
@@ -198,7 +198,7 @@ namespace WaterMarkingActions
                 }
                 //Replace New WaterMarkAssetInfo
                 manifest.EmbebedCodesList = UpdatedInfo;
-                myActions.UpdateUnifiedProcessStatus(manifest);
+                await myActions.UpdateUnifiedProcessStatus(manifest);
             }
             catch (Exception X)
             {
@@ -328,7 +328,7 @@ namespace WaterMarkingActions
                     myProcessStatus.JobStatus.State = ExecutionStatus.Error;
                     myProcessStatus.JobStatus.FinishTime = DateTime.Now;
                     myProcessStatus.JobStatus.Duration = DateTime.Now.Subtract(myProcessStatus.JobStatus.StartTime);
-                    myActions.UpdateUnifiedProcessStatus(myProcessStatus);
+                    await myActions.UpdateUnifiedProcessStatus(myProcessStatus);
                     break;
                 case ExecutionStatus.Running:
                     //Same status for JOB
@@ -338,7 +338,7 @@ namespace WaterMarkingActions
                     int mmrkTotal = mmrklist.Count();
                     int mmrkFinished = mmrklist.Where(m => m.State == ExecutionStatus.Finished).Count();
                     myProcessStatus.JobStatus.Details = $"Generating MMRK files {mmrkFinished} of {mmrkTotal}, last update {DateTime.Now.ToString()}";
-                    myActions.UpdateUnifiedProcessStatus(myProcessStatus);
+                    await myActions.UpdateUnifiedProcessStatus(myProcessStatus);
                     break;
                 case ExecutionStatus.Finished:
                     //Check EmbebedCodeList, Count running renders plus Finished render without AssetID (not created asset yet)
@@ -362,7 +362,7 @@ namespace WaterMarkingActions
                         myProcessStatus.JobStatus.Details = $"Process Running. Total Watermark copies {total}, Success {total - nRunning - nErrors} & Errors {nErrors}";
                         watingCopies = myProcessStatus.EmbebedCodesList.Where(emc => ((emc.AssetID == "") && (emc.State == ExecutionStatus.Finished))).Count();
                     }
-                    myActions.UpdateUnifiedProcessStatus(myProcessStatus);
+                    await myActions.UpdateUnifiedProcessStatus(myProcessStatus);
                     log.Info($"Updated Manifest JOB Status {myProcessStatus.JobStatus.State.ToString()}");
                     break;
             }
@@ -458,7 +458,7 @@ namespace WaterMarkingActions
                 default:
                     break;
             }
-            var updatedManifest = myActions.UpdateJob(Manifest, AssetStatus, JobState, JobStateDetails, WaterMarkCopiesStatus, WaterMarkCopiesStatusDetails);
+            var updatedManifest = await myActions.UpdateJob(Manifest, AssetStatus, JobState, JobStateDetails, WaterMarkCopiesStatus, WaterMarkCopiesStatusDetails);
 
             return req.CreateResponse(HttpStatusCode.OK, Manifest, JsonMediaTypeFormatter.DefaultMediaType);
         }
@@ -586,7 +586,7 @@ namespace WaterMarkingActions
                     copy.State = ExecutionStatus.Error;
                     copy.Details = $"Timeout error: {copy.Details}";
                 }
-                myActions.UpdateUnifiedProcessStatus(myProcessStatus);
+                await myActions.UpdateUnifiedProcessStatus(myProcessStatus);
             }
             catch (Exception X)
             {

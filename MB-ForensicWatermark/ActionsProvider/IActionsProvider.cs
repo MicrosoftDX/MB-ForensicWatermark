@@ -12,9 +12,9 @@ namespace ActionsProvider
 {
     public interface IActionsProvider
     {
-        MMRKStatus UpdateMMRKStatus(MMRKStatus mmrkStatus);
-        UnifiedResponse.UnifiedProcessStatus StartNewProcess(string AssetId, string JobId, string[] EmbebedCodeList);
-        MMRKStatus GetMMRKStatus(string AsssetId, string JobRender);
+        Task<MMRKStatus> UpdateMMRKStatus(MMRKStatus mmrkStatus);
+        Task<UnifiedResponse.UnifiedProcessStatus> StartNewProcess(string AssetId, string JobId, string[] EmbebedCodeList);
+        Task<MMRKStatus> GetMMRKStatus(string AsssetId, string JobRender);
         List<MMRKStatus> GetMMRKStatusList(string AssetID);
         UnifiedResponse.AssetStatus GetAssetStatus(string AssetId);
         Task<int> EvalPreprocessorNotifications(string JobId);
@@ -24,10 +24,10 @@ namespace ActionsProvider
         UnifiedResponse.WaterMarkedRender GetWaterMarkedRender(string ParentAssetID, string EmbebedCodeValue, string RenderName);
         List<UnifiedResponse.WaterMarkedRender> GetWaterMarkedRenders(string ParentAssetID, string EmbebedCodeValue);
         UnifiedResponse.WaterMarkedAssetInfo EvalWaterMarkedAssetInfo(string ParentAssetID, string EmbebedCodeValue);
-        void UpdateUnifiedProcessStatus(UnifiedResponse.UnifiedProcessStatus curretnData);
+        Task UpdateUnifiedProcessStatus(UnifiedResponse.UnifiedProcessStatus curretnData);
         UnifiedResponse.UnifiedProcessStatus GetUnifiedProcessStatus(string AssetId, string JobID);
         Task<K8SResult> SubmiteJobK8S(ManifestInfo manifest, int subId);
-        UnifiedResponse.UnifiedProcessStatus UpdateJob(UnifiedResponse.UnifiedProcessStatus currentData, ExecutionStatus AssetState, ExecutionStatus JobState, string JobStateDetails, ExecutionStatus watermarkState, string WaterMarkCopiesStatusDetails);
+        Task<UnifiedResponse.UnifiedProcessStatus> UpdateJob(UnifiedResponse.UnifiedProcessStatus currentData, ExecutionStatus AssetState, ExecutionStatus JobState, string JobStateDetails, ExecutionStatus watermarkState, string WaterMarkCopiesStatusDetails);
         List<ManifestInfo> GetK8SManifestInfo(int aggregationLevel, int aggregationLevelOnlyEmb, ManifestInfo manifest);
         Task<int> DeleteWatermarkedRenderTmpInfo(List<UnifiedResponse.WaterMarkedRender> WatermarkedRenders);
         void UpdateWaterMarkedAssetInfo(UnifiedResponse.WaterMarkedAssetInfo data, string ParentAssetId);

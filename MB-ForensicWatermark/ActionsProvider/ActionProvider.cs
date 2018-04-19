@@ -192,11 +192,11 @@ namespace ActionsProvider
         }
 
         #region Asset Info
-        public UnifiedResponse.AssetStatus GetAssetStatus(string AssetId)
+        public UnifiedResponse.AssetStatus  GetAssetStatus(string AssetId)
         {
             UnifiedResponse.AssetStatus r = null;
             TableOperation retrieveOperation = TableOperation.Retrieve<UnifiedResponse.TAssetStatus>("Flags", AssetId);
-            TableResult retrievedResult = _AssetStatus.Execute(retrieveOperation);
+            TableResult retrievedResult =  _AssetStatus.Execute(retrieveOperation);
             if (retrievedResult.Result != null)
             {
                 r = ((UnifiedResponse.TAssetStatus)retrievedResult.Result).GetAssetStatus();
@@ -205,7 +205,7 @@ namespace ActionsProvider
         }
         public UnifiedResponse.AssetStatus EvalAssetStatus(string AssetId)
         {
-            var assetStatus = GetAssetStatus(AssetId);
+            var assetStatus =  GetAssetStatus(AssetId);
             //MMRK renders list
             TableQuery<TMMRKStatus> query = new TableQuery<TMMRKStatus>().Where(TableQuery.GenerateFilterCondition("PartitionKey", QueryComparisons.Equal, AssetId));
             var mmrkList = _MMRKSttausTable.ExecuteQuery(query);
@@ -311,7 +311,7 @@ namespace ActionsProvider
                 throw new Exception($"[{JobID}] Error RealeaseAssetProcessLock for Asset {AssetId} : {X.Message}");
             }
         }
-        public void UpdateUnifiedProcessStatus(UnifiedResponse.UnifiedProcessStatus curretnData)
+        public async Task UpdateUnifiedProcessStatus(UnifiedResponse.UnifiedProcessStatus curretnData)
         {
             //Update Asset
             var asset = curretnData.AssetStatus;
@@ -319,12 +319,15 @@ namespace ActionsProvider
             //Update JobInformation
             TableOperation InsertOrReplace = TableOperation.InsertOrReplace(new UnifiedResponse.TJobStatus(curretnData.JobStatus, curretnData.AssetStatus.AssetId));
             _ProcessStatusTable.Execute(InsertOrReplace);
+
+            /*
             //Update all Enbebed
             foreach (var data in curretnData.EmbebedCodesList)
             {
                 UpdateWaterMarkedAssetInfo(data, curretnData.AssetStatus.AssetId);
             }
-
+            */
+            await UpdateWaterMarkedAssetsInfo(curretnData.EmbebedCodesList, curretnData.AssetStatus.AssetId);
         }
         private UnifiedResponse.JobStatus GetJobStatus(string AssetId, string JobID)
         {
@@ -341,7 +344,7 @@ namespace ActionsProvider
         {
             UnifiedResponse.UnifiedProcessStatus Manifest = new UnifiedResponse.UnifiedProcessStatus
             {
-                AssetStatus = GetAssetStatus(AssetId),
+                AssetStatus =  GetAssetStatus(AssetId),
                 JobStatus = GetJobStatus(AssetId, JobID),
                 EmbebedCodesList = new List<UnifiedResponse.WaterMarkedAssetInfo>()
 
@@ -352,7 +355,7 @@ namespace ActionsProvider
             }
             return Manifest;
         }
-        public UnifiedResponse.UnifiedProcessStatus StartNewProcess(string AssetId, string JobId, string[] EmbebedCodeList)
+        public async Task<UnifiedResponse.UnifiedProcessStatus> StartNewProcess(string AssetId, string JobId, string[] EmbebedCodeList)
         {
             //unique embbeder codes
             string[] UniqueEmbbederList = EmbebedCodeList.Distinct().ToArray();
@@ -376,7 +379,7 @@ namespace ActionsProvider
                     EmbebedCodeList = EmbebedCodeList
                 },
 
-                AssetStatus = GetAssetStatus(AssetId) ?? new UnifiedResponse.AssetStatus() { AssetId = AssetId, State = ExecutionStatus.New }
+                AssetStatus =  GetAssetStatus(AssetId) ?? new UnifiedResponse.AssetStatus() { AssetId = AssetId, State = ExecutionStatus.New }
             };
 
             //Status
@@ -452,12 +455,12 @@ namespace ActionsProvider
                         });
                 }
             }
-            UpdateUnifiedProcessStatus(newProcess);
+            await UpdateUnifiedProcessStatus(newProcess);
 
 
             return newProcess;
         }
-        public UnifiedProcessStatus UpdateJob(UnifiedResponse.UnifiedProcessStatus processState, ExecutionStatus AssetState, ExecutionStatus JobState, string JobStateDetails, ExecutionStatus watermarkState, string WaterMarkCopiesStatusDetails)
+        public async Task<UnifiedProcessStatus> UpdateJob(UnifiedResponse.UnifiedProcessStatus processState, ExecutionStatus AssetState, ExecutionStatus JobState, string JobStateDetails, ExecutionStatus watermarkState, string WaterMarkCopiesStatusDetails)
         {
             processState.AssetStatus.State = AssetState;
 
@@ -479,18 +482,18 @@ namespace ActionsProvider
                 watermaekAssetInfo.Details = WaterMarkCopiesStatusDetails;
             }
 
-            UpdateUnifiedProcessStatus(processState);
+            await UpdateUnifiedProcessStatus(processState);
 
             return processState;
         }
         #endregion
 
         #region MMRK files
-        public MMRKStatus GetMMRKStatus(string AsssetId, string JobRender)
+        public async Task<MMRKStatus> GetMMRKStatus(string AsssetId, string JobRender)
         {
             MMRKStatus myData = null;
             TableOperation retrieveOperation = TableOperation.Retrieve<TMMRKStatus>(AsssetId, JobRender);
-            TableResult retrievedResult = _MMRKSttausTable.Execute(retrieveOperation);
+            TableResult retrievedResult = await _MMRKSttausTable.ExecuteAsync(retrieveOperation);
             if (retrievedResult.Result != null)
             {
                 var Status = ((TMMRKStatus)retrievedResult.Result);
@@ -509,6 +512,29 @@ namespace ActionsProvider
 
             }
             return ret;
+        }
+        private List<List<T>> SplitList<T>(List<T> collection, int size)
+        {
+            var chunks = new List<List<T>>();
+            var chunkCount = collection.Count() / size;
+            if (collection.Count % size > 0)
+                chunkCount++;
+            for (var i = 0; i < chunkCount; i++)
+                chunks.Add(collection.Skip(i * size).Take(size).ToList());
+            return chunks;
+        }
+        public async Task UpdateWaterMarkedAssetsInfo(List<WaterMarkedAssetInfo> dataList, string ParentAssetId)
+        {
+            var ListOfList = SplitList(dataList, 99);
+            foreach (var currentList in ListOfList)
+            {
+                TableBatchOperation batchOperation = new TableBatchOperation();
+                foreach (var batch in currentList)
+                {
+                    batchOperation.InsertOrReplace(new UnifiedResponse.TWaterMarkedAssetInfo(batch, ParentAssetId));
+                }
+                await _WaterMarkedAssetInfo.ExecuteBatchAsync(batchOperation);
+            }
         }
         public void UpdateWaterMarkedAssetInfo(WaterMarkedAssetInfo data, string ParentAssetId)
         {
@@ -573,12 +599,12 @@ namespace ActionsProvider
 
             return currentWaterMarkInfo;
         }
-        public MMRKStatus UpdateMMRKStatus(MMRKStatus mmrkStatus)
+        public async Task<MMRKStatus> UpdateMMRKStatus(MMRKStatus mmrkStatus)
         {
             //Update MMRK Status
             TMMRKStatus myStatus = new TMMRKStatus(mmrkStatus);
             TableOperation InsertOrReplace = TableOperation.InsertOrReplace(myStatus);
-            _MMRKSttausTable.Execute(InsertOrReplace);
+            await _MMRKSttausTable.ExecuteAsync(InsertOrReplace);
             return mmrkStatus;
         }
         private async Task SendToDeadLetterQueue(CloudQueueClient queueClient , string messageData)
@@ -604,7 +630,7 @@ namespace ActionsProvider
                     string jobid = (string)jNotification["JobID"];
                     jobid = jobid.Split('-')[0];
                     string jobRender = $"[{jobid}]{(string)jNotification["FileName"]}";
-                    var MMRK = GetMMRKStatus((string)jNotification["AssetID"], jobRender);
+                    var MMRK = await GetMMRKStatus((string)jNotification["AssetID"], jobRender);
 
                     if ((MMRK.State == ExecutionStatus.Running))
                     {
